@@ -739,6 +739,163 @@ const Documentation = () => {
                       </div>
                     </div>
                   </div>
+
+                  <div className="mt-8 space-y-4">
+                    <h3 className="text-xl font-semibold text-foreground">Data Management & Object Editing Layer (edovl.c)</h3>
+                    <p className="text-muted-foreground">
+                      This module handles interactive data editing, name list management, and object attribute manipulation in XPSWMM. Understanding this layer is crucial for proper data extraction during conversion:
+                    </p>
+
+                    <div className="bg-muted/30 p-6 rounded-lg space-y-4">
+                      <div>
+                        <h4 className="font-semibold text-foreground mb-2">Object Name Management</h4>
+                        <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+                          <li>• <strong>EdNodeName():</strong> Manages node/junction identifiers (up to 10 characters, padded right)</li>
+                          <li>• <strong>EdEdgeName():</strong> Manages conduit/link identifiers (trimmed and padded)</li>
+                          <li>• Object names stored in SWMM.TEMP card during editing, then committed to database</li>
+                          <li>• Position data (X/Y coordinates) handled via PlPoint structures with plane-to-user coordinate conversion</li>
+                          <li>• Trimb() function removes trailing blanks before database storage</li>
+                        </ul>
+                      </div>
+
+                      <div>
+                        <h4 className="font-semibold text-foreground mb-2">Multi-Conduit System</h4>
+                        <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+                          <li>• <strong>MakeSingle():</strong> Converts DASHLINEID (multi-conduit) to LINEID (single conduit)</li>
+                          <li>• <strong>MakeMulti():</strong> Converts LINEID to DASHLINEID, enabling up to 7 parallel conduits per link</li>
+                          <li>• Uses DbPasteFilter with AdDbSwapFilter to move data between group numbers (grpno 0 ↔ grpno 1-7)</li>
+                          <li>• Temporary buffer files created via tmpnam() for safe data transformation</li>
+                          <li>• IMPORTANT: Multi-conduit data requires special handling during INP export (grpno indexing)</li>
+                        </ul>
+                      </div>
+
+                      <div>
+                        <h4 className="font-semibold text-foreground mb-2">Global Name List System</h4>
+                        <p className="text-sm text-muted-foreground mb-2">
+                          XPSWMM maintains persistent name lists for user-defined entities across modes:
+                        </p>
+                        <div className="grid md:grid-cols-2 gap-2 text-xs font-mono">
+                          <div className="bg-background/50 p-2 rounded">
+                            <div className="font-semibold text-foreground mb-1">Runoff Mode:</div>
+                            <div className="text-muted-foreground">• gPollutantNames</div>
+                            <div className="text-muted-foreground">• gLanduseNames</div>
+                            <div className="text-muted-foreground">• gBuildupNames (Buildup/Washoff)</div>
+                            <div className="text-muted-foreground">• gErosionNames</div>
+                            <div className="text-muted-foreground">• gGroundwaterNames</div>
+                            <div className="text-muted-foreground">• gInfiltrationNames</div>
+                            <div className="text-muted-foreground">• gRainfallNames</div>
+                            <div className="text-muted-foreground">• gSnowmeltNames</div>
+                            <div className="text-muted-foreground">• gInitLoadNames</div>
+                            <div className="text-muted-foreground">• gIINames (I/I Infiltration)</div>
+                          </div>
+                          <div className="bg-background/50 p-2 rounded">
+                            <div className="font-semibold text-foreground mb-1">Transport/Extran Mode:</div>
+                            <div className="text-muted-foreground">• gBmpNames</div>
+                            <div className="text-muted-foreground">• gDWSewerInflowNames</div>
+                            <div className="text-muted-foreground">• gSewerInfilNames</div>
+                            <div className="text-muted-foreground">• gWSTempNames</div>
+                            <div className="text-muted-foreground">• gPRatingsNames (Pump Ratings)</div>
+                            <div className="text-muted-foreground">• gPitRatCurveNames</div>
+                            <div className="text-muted-foreground">• gUserDefFilesNames</div>
+                          </div>
+                        </div>
+                        <ul className="text-sm text-muted-foreground space-y-1 ml-4 mt-2">
+                          <li>• Each NameList contains array of NAMED_REC structures (name + value pairs)</li>
+                          <li>• Lists stored in ZSYM.GLDB database card with current selection index</li>
+                          <li>• Global database dialog (2051) manages all name lists through ListBox interface</li>
+                        </ul>
+                      </div>
+
+                      <div>
+                        <h4 className="font-semibold text-foreground mb-2">Name List Lifecycle Management</h4>
+                        <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+                          <li>• <strong>EdNewNames():</strong> Initialize default name lists on new project creation</li>
+                          <li>• <strong>EdLoadNames():</strong> Load persistent name lists from database on project open</li>
+                          <li>• <strong>EdSaveNames():</strong> Commit name lists to database on project save</li>
+                          <li>• <strong>EdCloseNames():</strong> Clear name lists on project close</li>
+                          <li>• gItemList array defines 21 persistent name list types (see NAME_LIST structure)</li>
+                        </ul>
+                      </div>
+
+                      <div>
+                        <h4 className="font-semibold text-foreground mb-2">Copy-Paste & Duplication</h4>
+                        <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+                          <li>• <strong>EdCopyDialogNew():</strong> Delegates to Ext_EdCopyDialogNew() for mode-specific copy logic</li>
+                          <li>• DbCopyBuffName() and DbPasteBuffName() handle database record duplication</li>
+                          <li>• Supports global database duplication (requires user selection in dialog 2051)</li>
+                          <li>• Paste filters enable group number transformations during copy operations</li>
+                        </ul>
+                      </div>
+
+                      <div>
+                        <h4 className="font-semibold text-foreground mb-2">Interactive Pop-Up Menus</h4>
+                        <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+                          <li>• <strong>EdPopUpNode():</strong> Context menu for nodes - Attributes, Notes, Color (5 options), Thickness (3 options)</li>
+                          <li>• <strong>EdPopUpEdge():</strong> Context menu for conduits - Single/Multi conversion, Attributes, Notes, Color</li>
+                          <li>• <strong>EdPopUpText():</strong> Context menu for text labels - Color selection only</li>
+                          <li>• Object types: TEXTID, SQUAREID, CROSSID, CIRCLEID, TRIANGLEID (nodes), LINEID, BOLDLINEID, DASHLINEID (edges)</li>
+                          <li>• Visual attributes: BLACKCOLOUR, REDCOLOUR, GREENCOLOUR, BLUECOLOUR, YELLOWCOLOUR</li>
+                          <li>• Thickness options: THIN, MEDIUM, THICK</li>
+                        </ul>
+                      </div>
+
+                      <div>
+                        <h4 className="font-semibold text-foreground mb-2">ListBox Management System (LBITEM)</h4>
+                        <p className="text-sm text-muted-foreground mb-2">
+                          The gLists array defines interactive list boxes in dialogs:
+                        </p>
+                        <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+                          <li>• Dialog 2051: Global database selector (items 10-19) and Buildup/Washoff editor (items 22-31)</li>
+                          <li>• Dialog 2026: Statistics pollutants selector (items 4-13)</li>
+                          <li>• Dialog 2509: Gauged pollutants editor (items 4-10)</li>
+                          <li>• LBITEM_SEL2: Special selection mode for dual-list interfaces</li>
+                          <li>• LBITEM_TO_LIST / LBITEM_FROM_LIST: Transfer buttons for moving items between lists</li>
+                          <li>• Reload modes: RELOAD_GNO (reload on global selection), RELOAD_CNO (reload on condition), RELOAD_NULL (no reload)</li>
+                          <li>• Supports sorted lists, rename/delete/add/edit operations via button IDs</li>
+                        </ul>
+                      </div>
+
+                      <div>
+                        <h4 className="font-semibold text-foreground mb-2">Database Card Management</h4>
+                        <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+                          <li>• Temporary editing uses SWMM.TEMP card (group 0, object index = idx)</li>
+                          <li>• DbOvrString() overlays string data without creating new records</li>
+                          <li>• DbPutLength() / DbGetLength() handle coordinate data with unit conversion</li>
+                          <li>• DbDeleteRecords() cleans up temporary cards after dialog OK/Cancel</li>
+                          <li>• Position conversion: PointPlaneToUser() / PointUserToPlane() for coordinate systems</li>
+                        </ul>
+                      </div>
+
+                      <div>
+                        <h4 className="font-semibold text-foreground mb-2">Special Pollutant Lists</h4>
+                        <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+                          <li>• <strong>gUsePollutants:</strong> Active pollutants selected for current simulation</li>
+                          <li>• <strong>gStatPollutants:</strong> Pollutants for statistical analysis</li>
+                          <li>• <strong>gGaugedPollutants:</strong> Pollutants with measured/gauged data</li>
+                          <li>• Dialog 2010/2013: Pollutant definition (Runoff/Transport modes)</li>
+                          <li>• Dialog 2014: Landuse definition</li>
+                        </ul>
+                      </div>
+
+                      <div>
+                        <h4 className="font-semibold text-foreground mb-2">Conversion Implications</h4>
+                        <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+                          <li>• <strong>Name Resolution:</strong> All name lists must be fully loaded before export to resolve ID references</li>
+                          <li>• <strong>Multi-Conduit Handling:</strong> Export logic must iterate grpno 1-7 for DASHLINEID objects</li>
+                          <li>• <strong>Coordinate Systems:</strong> Apply PointPlaneToUser transformations to match SWMM5 coordinate expectations</li>
+                          <li>• <strong>Pollutant Mapping:</strong> Cross-reference gPollutantNames, gUsePollutants, and mode-specific lists</li>
+                          <li>• <strong>Global DB Dependencies:</strong> Infiltration, Buildup/Washoff, Groundwater settings stored as named templates</li>
+                          <li>• <strong>String Formatting:</strong> PadRight(10) and Trimb() ensure consistent SWMM name formatting</li>
+                        </ul>
+                      </div>
+
+                      <div className="bg-primary/10 border border-primary/20 p-3 rounded">
+                        <p className="text-xs text-foreground">
+                          <strong>Architecture Note:</strong> The edovl.c module represents XPSWMM's UI-to-database bridge. During conversion, this layer's functions are bypassed for direct database reads, but understanding its data structures (NAMED_REC, NAME_LIST, LBITEM, GlobalDB) is essential for correctly interpreting stored configurations and cross-referencing named entities across the hydraulic network.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </Card>
             </TabsContent>
