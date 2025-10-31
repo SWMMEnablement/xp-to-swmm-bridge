@@ -613,6 +613,132 @@ const Documentation = () => {
                       <strong>Implementation Note:</strong> This demonstration interface shows the conversion workflow. Full implementation requires XPSWMM binary file format specifications (proprietary) and parsing libraries capable of reading .xp files, or alternatively, working with XPSWMM's native export functionality.
                     </p>
                   </div>
+
+                  <div className="mt-8 space-y-4">
+                    <h3 className="text-xl font-semibold text-foreground">Run Control Export Implementation</h3>
+                    <p className="text-muted-foreground">
+                      The following technical details describe how XPSWMM exports run control parameters (simulation settings, print/plot controls, output specifications) to SWMM5 format:
+                    </p>
+
+                    <div className="bg-muted/30 p-6 rounded-lg space-y-4">
+                      <div>
+                        <h4 className="font-semibold text-foreground mb-2">A1 Card - Title Block</h4>
+                        <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+                          <li>• Exports project title and subtitle from EXTR.A1 and EXTR.A1B cards</li>
+                          <li>• Fortran character string formatting applied (StuffString function)</li>
+                          <li>• Two title lines exported sequentially</li>
+                        </ul>
+                      </div>
+
+                      <div>
+                        <h4 className="font-semibold text-foreground mb-2">BB Card - Routing Control Parameters</h4>
+                        <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+                          <li>• <strong>BB1:</strong> Kinematic wave routing parameters (KINE, ITOL, KSUPER)</li>
+                          <li>• <strong>BB2:</strong> Junction defaults, simulation tolerances (ISMTH, MFAIL, NEQUAL, FUDGE, AJ1, AJ2)</li>
+                          <li>• ISMTH multiplied by -1 if Kinematic Wave routing selected</li>
+                          <li>• MFAIL multiplied by -1 if Report Non-Convergence flag enabled</li>
+                          <li>• NEQUAL set to 0 if routing control or modify conduits flag is off</li>
+                          <li>• Natural Section flag defaults if Output Control disabled</li>
+                        </ul>
+                      </div>
+
+                      <div>
+                        <h4 className="font-semibold text-foreground mb-2">BC Card - Extended Job Control</h4>
+                        <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+                          <li>• Extrapolation flag (NEXTРА)</li>
+                          <li>• XLS file output flag (enables Excel results export)</li>
+                          <li>• SRV file output flag (results service file)</li>
+                          <li>• XPX file output flag (XPSWMM extended binary output)</li>
+                          <li>• EXTRAN evaporation calculation flag</li>
+                          <li>• XY coordinate recalculation flag</li>
+                          <li>• Implicit time step flag</li>
+                          <li>• Energy Grade Line (EGL) calculation flag</li>
+                          <li>• EXPLOSS: Expansion loss coefficient</li>
+                          <li>• SURLAKE: Surface lake setting</li>
+                          <li>• DSPATIAL: Spatial weighting (default 0.5)</li>
+                        </ul>
+                      </div>
+
+                      <div>
+                        <h4 className="font-semibold text-foreground mb-2">B1 Card - Simulation Duration & Timestep</h4>
+                        <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+                          <li>• Start date/time (NYR, NMON, NDAY, NHR, NMIN, NSEC) from B1A card fields 34-14</li>
+                          <li>• End date/time from B1A card fields 41-31</li>
+                          <li>• NTCYC (number of timesteps) calculated: duration (hours) × 3600 / DELT</li>
+                          <li>• Simulation duration = (EndJulianDay - StartJulianDay) × 24 + (EndHr - StartHr)</li>
+                          <li>• Output control defaults: Start printout timestep=1, Intermediate=500, Summary=500</li>
+                          <li>• CTLRR flag: Save ALL Results for Review (field 71)</li>
+                          <li>• Validates minimum duration (NTCYC &lt; 1 triggers error)</li>
+                        </ul>
+                      </div>
+
+                      <div>
+                        <h4 className="font-semibold text-foreground mb-2">B2 Card - Units & Equilibrium Controls</h4>
+                        <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+                          <li>• Unit system flag (defaults to Imperial if blank)</li>
+                          <li>• NEQUAL: Number of equilibrium iterations (only if routing + modify conduits enabled)</li>
+                          <li>• Simulation tolerance parameters (SURHEC) from B1 field 42</li>
+                          <li>• Junction defaults cleared if flag disabled (AJ1, AJ2, FUDGE set to blank)</li>
+                        </ul>
+                      </div>
+
+                      <div>
+                        <h4 className="font-semibold text-foreground mb-2">B3-B8 Cards - Output Control</h4>
+                        <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+                          <li>• <strong>B3:</strong> Output counts - Print nodes, Print conduits, Plot nodes, Plot conduits, Input hydrographs</li>
+                          <li>• <strong>B4:</strong> List of nodes for detailed head printing (SP1N field 54)</li>
+                          <li>• <strong>B5:</strong> List of conduits for flow-history printing (SPSC field 15)</li>
+                          <li>• <strong>B6:</strong> List of nodes for detailed head plotting (SP1N field 56)</li>
+                          <li>• <strong>B7:</strong> List of conduits for flow-history plotting (SPSC field 25)</li>
+                          <li>• <strong>B8:</strong> List of conduits for special head plotting (SPSC field 60)</li>
+                          <li>• Each list limited to ITEMS_PER_LINE=7 elements per card (10-char max object names)</li>
+                          <li>• Multi-conduit dashlinks handled with grpno indexing (1-7 conduits per dashlink)</li>
+                          <li>• Only nodes/links marked for EXTRAN mode exported (MODE_EXTRAN filter)</li>
+                        </ul>
+                      </div>
+
+                      <div>
+                        <h4 className="font-semibold text-foreground mb-2">Hot-Start File Handling (B1 field 70)</h4>
+                        <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+                          <li>• Export Unit 14 for hot-start file if hotcontrol=1</li>
+                          <li>• REDO flag determines input(1) vs output(2) mode</li>
+                          <li>• File name from F_HOTFN field (EXTR card)</li>
+                          <li>• Enables simulation continuity between runs</li>
+                        </ul>
+                      </div>
+
+                      <div>
+                        <h4 className="font-semibold text-foreground mb-2">Key Functions & Validation</h4>
+                        <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+                          <li>• <code>GetNodeSubset()</code>: Filters nodes by type and control flag value</li>
+                          <li>• <code>GetEdgeSubset()</code>: Filters conduits/links with multi-conduit support</li>
+                          <li>• <code>CheckCount()</code>: Validates element counts against SWMM.PAR limits</li>
+                          <li>• <code>OutputSubsetEdgeList()</code>: Writes conduit names with Fortran string quoting</li>
+                          <li>• UDD Mode enforcement: Only Kinematic routing allowed unless full equation mode enabled</li>
+                          <li>• Missing BB1/BB2 data triggers conversion errors with explicit messages</li>
+                        </ul>
+                      </div>
+
+                      <div>
+                        <h4 className="font-semibold text-foreground mb-2">SWMM.PAR Limit Checking</h4>
+                        <p className="text-sm text-muted-foreground mb-2">
+                          The export process validates element counts against limits defined in SWMM.PAR:
+                        </p>
+                        <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+                          <li>• ext_printlocs: Maximum print/plot locations</li>
+                          <li>• ext_inputhyds: Maximum user input hydrographs</li>
+                          <li>• If SWMM.PAR not found, defaults to LARGE_DEFAULT_LIMIT=16000</li>
+                          <li>• Exceeding limits generates warnings during export</li>
+                        </ul>
+                      </div>
+
+                      <div className="bg-primary/10 border border-primary/20 p-3 rounded">
+                        <p className="text-xs text-foreground">
+                          <strong>Technical Notes:</strong> This export module (exporun.c) is part of XPSWMM's legacy C codebase. It demonstrates the complex data transformation between XPSWMM's database-oriented storage (DbGetInt, DbGetString, DbGetFloat) and SWMM's card-based text format. Modern implementations may use direct INP section writing instead of intermediate "temp cards."
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </Card>
             </TabsContent>
