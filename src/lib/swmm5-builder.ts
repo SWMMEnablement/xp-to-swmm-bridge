@@ -164,6 +164,43 @@ SKIP_STEADY_STATE    NO
     inp += `[MAP]\nDIMENSIONS ${Math.min(...xs).toFixed(2)} ${Math.min(...ys).toFixed(2)} ${Math.max(...xs).toFixed(2)} ${Math.max(...ys).toFixed(2)}\nUnits      None\n\n`;
   }
 
+  // Subcatchments
+  const subs = p.subcatchments || [];
+  if (subs.length) {
+    inp += `[SUBCATCHMENTS]\n;;Name           Rain Gage        Outlet           Area       %Imperv    Width      %Slope     CurbLen    SnowPack\n;;-------------- ---------------- ---------------- ---------- ---------- ---------- ---------- ---------- ----------\n`;
+    subs.forEach(s => {
+      inp += `${pd(s.name, 16)} ${pd(s.rainGage || '*', 16)} ${pd(s.outlet || '?', 16)} ${pd(f(s.area), 10)} ${pd(f(s.imperv), 10)} ${pd(f(s.width), 10)} ${pd(f(s.slope), 10)} 0          \n`;
+    });
+    inp += '\n';
+  }
+
+  if (subs.length) {
+    inp += `[SUBAREAS]\n;;Subcatchment    N-Imperv   N-Perv     S-Imperv   S-Perv     PctZero    RouteTo    PctRouted\n;;-------------- ---------- ---------- ---------- ---------- ---------- ---------- ----------\n`;
+    subs.forEach(s => {
+      inp += `${pd(s.name, 16)} ${pd(f(s.nImperv, 4), 10)} ${pd(f(s.nPerv, 4), 10)} ${pd(f(s.dsImperv, 2), 10)} ${pd(f(s.dsPerv, 2), 10)} ${pd(f(s.pctZero), 10)} ${pd(s.routeTo || 'OUTLET', 10)} 100\n`;
+    });
+    inp += '\n';
+  }
+
+  // Infiltration (Horton if f0 available, else Green-Ampt if conduc, else Curve Number)
+  const subsWithInfil = subs.filter(s => s.f0 > 0 || s.conduc > 0 || s.curveNum > 0);
+  if (subsWithInfil.length) {
+    inp += `[INFILTRATION]\n;;Subcatchment    Param1     Param2     Param3     Param4     Param5\n;;-------------- ---------- ---------- ---------- ---------- ----------\n`;
+    subs.forEach(s => {
+      if (s.f0 > 0) {
+        // Horton
+        inp += `${pd(s.name, 16)} ${pd(f(s.f0), 10)} ${pd(f(s.ff), 10)} ${pd(f(s.fDecay), 10)} ${pd(f(s.fDry), 10)} ${pd(f(s.fMaxVol), 10)}\n`;
+      } else if (s.conduc > 0) {
+        // Green-Ampt
+        inp += `${pd(s.name, 16)} ${pd(f(s.suctionHead), 10)} ${pd(f(s.conduc), 10)} ${pd(f(s.initMoisDef), 10)} 0          0\n`;
+      } else if (s.curveNum > 0) {
+        // Curve Number
+        inp += `${pd(s.name, 16)} ${pd(f(s.curveNum), 10)} ${pd(f(s.conduc), 10)} ${pd(f(s.fDry), 10)} 0          0\n`;
+      }
+    });
+    inp += '\n';
+  }
+
   inp += `[REPORT]\nSUBCATCHMENTS ALL\nNODES ALL\nLINKS ALL\n`;
   return inp;
 }

@@ -79,6 +79,30 @@ export const DB: Record<string, FieldDef> = {
   AJ1:{g:'EXTR',c:'BB2',p:24,w:8,t:2}, AJ2:{g:'EXTR',c:'BB2',p:33,w:8,t:2},
   ISMTH:{g:'EXTR',c:'BB2',p:51,w:8,t:1}, KSUPER:{g:'EXTR',c:'BB2',p:77,w:1,t:3},
   ISOL:{g:'EXTR',c:'BB2',p:78,w:1,t:3}, KINE:{g:'EXTR',c:'BB2',p:79,w:1,t:3},
+  // Runoff block (RNFF) subcatchment fields
+  SNAME:{g:'RNFF',c:'R1',p:1,w:10,t:5},    // Subcatchment name
+  SAREA:{g:'RNFF',c:'R1',p:11,w:10,t:2},    // Area (acres or hectares)
+  SWID:{g:'RNFF',c:'R1',p:21,w:10,t:2},     // Width (ft or m)
+  SSLOPE:{g:'RNFF',c:'R1',p:31,w:10,t:2},   // Slope (%)
+  SIMPERV:{g:'RNFF',c:'R1',p:41,w:10,t:2},  // % Imperviousness
+  SOUTLET:{g:'RNFF',c:'R1',p:51,w:10,t:5},  // Outlet node name
+  SNIMP:{g:'RNFF',c:'R2',p:1,w:10,t:2},     // Manning's N impervious
+  SNPERV:{g:'RNFF',c:'R2',p:11,w:10,t:2},   // Manning's N pervious
+  SDSIP:{g:'RNFF',c:'R2',p:21,w:10,t:2},    // Depression storage imperv (in/mm)
+  SDSPV:{g:'RNFF',c:'R2',p:31,w:10,t:2},    // Depression storage perv (in/mm)
+  SPZIMP:{g:'RNFF',c:'R2',p:41,w:10,t:2},   // % zero imperv storage
+  SROUTE:{g:'RNFF',c:'R2',p:51,w:10,t:3},   // Routing: 0=Outlet, 1=Imperv, 2=Perv
+  SF0:{g:'RNFF',c:'R3',p:1,w:10,t:2},       // Horton max infil rate
+  SFF:{g:'RNFF',c:'R3',p:11,w:10,t:2},      // Horton min infil rate
+  SFDECAY:{g:'RNFF',c:'R3',p:21,w:10,t:2},  // Horton decay constant (1/hr)
+  SFDRY:{g:'RNFF',c:'R3',p:31,w:10,t:2},    // Drying time (days)
+  SFMAXVOL:{g:'RNFF',c:'R3',p:41,w:10,t:2}, // Max volume (in/mm)
+  SCURVEN:{g:'RNFF',c:'R4',p:1,w:10,t:2},   // SCS Curve Number
+  SCONDUC:{g:'RNFF',c:'R4',p:11,w:10,t:2},  // Hydraulic conductivity
+  SHEAD:{g:'RNFF',c:'R4',p:21,w:10,t:2},    // Suction head
+  SIMD:{g:'RNFF',c:'R4',p:31,w:10,t:2},     // Initial moisture deficit
+  SRGNAME:{g:'RNFF',c:'R5',p:1,w:10,t:5},   // Rain gage name
+  SSNOW:{g:'RNFF',c:'R5',p:11,w:1,t:4},     // Snow flag
 };
 
 export interface XPNode {
@@ -136,9 +160,40 @@ export interface XPLink {
   [key: string]: unknown;
 }
 
+export interface XPSubcatchment {
+  idx: number;
+  name: string;
+  area: number;
+  width: number;
+  slope: number;
+  imperv: number;
+  outlet: string;
+  nImperv: number;
+  nPerv: number;
+  dsImperv: number;
+  dsPerv: number;
+  pctZero: number;
+  routeTo: string;
+  // Infiltration (Horton)
+  f0: number;
+  ff: number;
+  fDecay: number;
+  fDry: number;
+  fMaxVol: number;
+  // Infiltration (Green-Ampt / Curve Number)
+  curveNum: number;
+  conduc: number;
+  suctionHead: number;
+  initMoisDef: number;
+  // Rain gage
+  rainGage: string;
+  [key: string]: unknown;
+}
+
 export interface XPParseResult {
   nodes: XPNode[];
   links: XPLink[];
+  subcatchments: XPSubcatchment[];
   jobControl: Record<string, string>;
   rawCards: Record<string, { data: string }[]>;
   format: string;
@@ -151,6 +206,7 @@ type RecordMap = Record<string, Record<number, Record<number, string[]>>>;
 export class XPParser {
   nodes: XPNode[] = [];
   links: XPLink[] = [];
+  subcatchments: XPSubcatchment[] = [];
   jobControl: Record<string, string> = {};
   rawCards: Record<string, { data: string }[]> = {};
   format = 'unknown';
@@ -179,8 +235,9 @@ export class XPParser {
 
   getResult(): XPParseResult {
     return {
-      nodes: this.nodes, links: this.links, jobControl: this.jobControl,
-      rawCards: this.rawCards, format: this.format, title: this.title, warnings: this.warnings
+      nodes: this.nodes, links: this.links, subcatchments: this.subcatchments,
+      jobControl: this.jobControl, rawCards: this.rawCards,
+      format: this.format, title: this.title, warnings: this.warnings
     };
   }
 
@@ -431,6 +488,53 @@ export class XPParser {
     const a1d = gd('EXTR:A1', 0, 0);
     if (a1d) this.title = this.xf(a1d, DB.ALPHA).trim();
     this.extractJC(rec);
+
+    // Phase 9: Subcatchments from RNFF block
+    const scOIs = new Set([
+      ...ois('RNFF:R1'), ...ois('RNFF:R2'), ...ois('RNFF:R3'),
+      ...ois('RNFF:R4'), ...ois('RNFF:R5'),
+    ]);
+    for (const oi of [...scOIs].sort((a, b) => a - b)) {
+      const r1 = gd('RNFF:R1', oi, 0);
+      const r2 = gd('RNFF:R2', oi, 0);
+      const r3 = gd('RNFF:R3', oi, 0);
+      const r4 = gd('RNFF:R4', oi, 0);
+      const r5 = gd('RNFF:R5', oi, 0);
+
+      const name = this.xf(r1, DB.SNAME).trim() || `Sub_${oi}`;
+      const area = this.toF(this.xf(r1, DB.SAREA));
+      if (area <= 0 && !name) continue; // Skip empty subcatchments
+
+      const routeCode = this.toI(this.xf(r2, DB.SROUTE));
+      const routeMap: Record<number, string> = { 0: 'OUTLET', 1: 'IMPERVIOUS', 2: 'PERVIOUS' };
+
+      const sc: XPSubcatchment = {
+        idx: oi,
+        name,
+        area,
+        width: this.toF(this.xf(r1, DB.SWID)),
+        slope: this.toF(this.xf(r1, DB.SSLOPE)),
+        imperv: this.toF(this.xf(r1, DB.SIMPERV)),
+        outlet: this.xf(r1, DB.SOUTLET).trim() || '',
+        nImperv: this.toF(this.xf(r2, DB.SNIMP)) || 0.01,
+        nPerv: this.toF(this.xf(r2, DB.SNPERV)) || 0.1,
+        dsImperv: this.toF(this.xf(r2, DB.SDSIP)) || 0.05,
+        dsPerv: this.toF(this.xf(r2, DB.SDSPV)) || 0.05,
+        pctZero: this.toF(this.xf(r2, DB.SPZIMP)),
+        routeTo: routeMap[routeCode] || 'OUTLET',
+        f0: this.toF(this.xf(r3, DB.SF0)),
+        ff: this.toF(this.xf(r3, DB.SFF)),
+        fDecay: this.toF(this.xf(r3, DB.SFDECAY)),
+        fDry: this.toF(this.xf(r3, DB.SFDRY)),
+        fMaxVol: this.toF(this.xf(r3, DB.SFMAXVOL)),
+        curveNum: this.toF(this.xf(r4, DB.SCURVEN)),
+        conduc: this.toF(this.xf(r4, DB.SCONDUC)),
+        suctionHead: this.toF(this.xf(r4, DB.SHEAD)),
+        initMoisDef: this.toF(this.xf(r4, DB.SIMD)),
+        rainGage: this.xf(r5, DB.SRGNAME).trim() || '*',
+      };
+      this.subcatchments.push(sc);
+    }
   }
 
   private parseSWMM34(lines: string[]) {
@@ -490,32 +594,71 @@ export class XPParser {
     };
     const strProps = new Set(['name', 'usNode', 'dsNode', 'type']);
 
+    const scFmap: Record<string, string> = {
+      SAREA: 'area', AREA: 'area', SWID: 'width', SSLOPE: 'slope', SLOPE: 'slope',
+      SIMPERV: 'imperv', IMPERV: 'imperv', PERCENT_IMPERV: 'imperv',
+      SOUTLET: 'outlet', OUTLET: 'outlet', OUTLET_NODE: 'outlet',
+      SNIMP: 'nImperv', N_IMPERV: 'nImperv', SNPERV: 'nPerv', N_PERV: 'nPerv',
+      SDSIP: 'dsImperv', DS_IMPERV: 'dsImperv', SDSPV: 'dsPerv', DS_PERV: 'dsPerv',
+      SPZIMP: 'pctZero', PCT_ZERO: 'pctZero',
+      SF0: 'f0', MAX_RATE: 'f0', SFF: 'ff', MIN_RATE: 'ff',
+      SFDECAY: 'fDecay', DECAY: 'fDecay', SFDRY: 'fDry', DRY_TIME: 'fDry',
+      SCURVEN: 'curveNum', CURVE_NUMBER: 'curveNum',
+      SCONDUC: 'conduc', CONDUCTIVITY: 'conduc',
+      SHEAD: 'suctionHead', SUCTION_HEAD: 'suctionHead',
+      SIMD: 'initMoisDef', INIT_DEFICIT: 'initMoisDef',
+      SRGNAME: 'rainGage', RAIN_GAGE: 'rainGage',
+    };
+    const scStrProps = new Set(['name', 'outlet', 'rainGage', 'routeTo']);
+
     for (const line of lines) {
       const t = line.trim();
       if (!t || t[0] === ';' || t[0] === '*') continue;
       if (t === '[NODE]') {
         if (cur && ot === 'n') this.nodes.push(cur);
         if (cur && ot === 'l') this.links.push(cur);
+        if (cur && ot === 's') this.subcatchments.push(cur);
         cur = { idx: this.nodes.length + 1, type: 'Junction', x: 0, y: 0, name: '', grelev: 0, y0: 0, qinst: 0 };
         ot = 'n'; continue;
       }
       if (t === '[LINK]') {
         if (cur && ot === 'n') this.nodes.push(cur);
         if (cur && ot === 'l') this.links.push(cur);
+        if (cur && ot === 's') this.subcatchments.push(cur);
         cur = { idx: this.links.length + 1, type: 'Conduit', barrel: 1, name: '', usNode: '', dsNode: '' };
         ot = 'l'; continue;
       }
+      if (t === '[SUBCATCHMENT]' || t === '[SUBCATCH]') {
+        if (cur && ot === 'n') this.nodes.push(cur);
+        if (cur && ot === 'l') this.links.push(cur);
+        if (cur && ot === 's') this.subcatchments.push(cur);
+        cur = { idx: this.subcatchments.length + 1, name: '', area: 0, width: 0, slope: 0, imperv: 0,
+          outlet: '', nImperv: 0.01, nPerv: 0.1, dsImperv: 0.05, dsPerv: 0.05, pctZero: 25,
+          routeTo: 'OUTLET', f0: 0, ff: 0, fDecay: 0, fDry: 0, fMaxVol: 0,
+          curveNum: 0, conduc: 0, suctionHead: 0, initMoisDef: 0, rainGage: '*' };
+        ot = 's'; continue;
+      }
       const eq = t.match(/^(\w+)\s*=\s*(.*)/);
       if (eq && cur) {
-        const k = eq[1].toUpperCase(), v = eq[2].trim(), prop = fmap[k];
-        if (prop) cur[prop] = strProps.has(prop) ? v : (parseFloat(v) || 0);
-        if (k === 'KO' && parseInt(v) > 0) cur.type = 'Outfall';
-        if (k === 'ASTORE' && parseFloat(v) > 0) cur.type = 'Storage';
-        if (k === 'NKLASS') cur.shapeName = SHAPE_CODES[parseInt(v)] || `Shape_${v}`;
+        const k = eq[1].toUpperCase(), v = eq[2].trim();
+        if (ot === 's') {
+          if (k === 'NAME' || k === 'SNAME') cur.name = v;
+          else {
+            const prop = scFmap[k];
+            if (prop) cur[prop] = scStrProps.has(prop) ? v : (parseFloat(v) || 0);
+          }
+        } else {
+          const prop = fmap[k];
+          if (prop) cur[prop] = strProps.has(prop) ? v : (parseFloat(v) || 0);
+          if (k === 'KO' && parseInt(v) > 0) cur.type = 'Outfall';
+          if (k === 'ASTORE' && parseFloat(v) > 0) cur.type = 'Storage';
+          if (k === 'NKLASS') cur.shapeName = SHAPE_CODES[parseInt(v)] || `Shape_${v}`;
+        }
       }
     }
     if (cur && ot === 'n') this.nodes.push(cur);
     if (cur && ot === 'l') this.links.push(cur);
+    if (cur && ot === 's') this.subcatchments.push(cur);
   }
 
   private extractJC(rec: RecordMap) {
