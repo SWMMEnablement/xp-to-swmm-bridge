@@ -442,6 +442,71 @@ const GitHubBatch = () => {
             </Card>
           )}
 
+          {/* Conversion Summary Table */}
+          {doneCount > 0 && (
+            <Card>
+              <CardHeader className="py-3">
+                <CardTitle className="text-sm font-mono">Conversion Summary</CardTitle>
+              </CardHeader>
+              <CardContent className="py-2">
+                <div className="overflow-x-auto border rounded-lg">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-muted/50 border-b">
+                        {["File", "Status", "Size (KB)", "Nodes", "Links", "Output Size (KB)"].map(h => (
+                          <th key={h} className="px-3 py-2 text-left font-mono text-xs text-muted-foreground uppercase tracking-wider whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {results.map((r, i) => {
+                        if (r.status !== "done" && r.status !== "error") return null;
+                        const srcSize = allFiles[i] ? (allFiles[i].size / 1024).toFixed(1) : "—";
+                        const outSize = r.inp ? (new Blob([r.inp]).size / 1024).toFixed(1) : "—";
+                        return (
+                          <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
+                            <td className="px-3 py-1.5 font-mono text-xs text-primary font-medium truncate max-w-[200px]">{r.file}</td>
+                            <td className="px-3 py-1.5">
+                              {r.status === "done" ? (
+                                <Badge className="bg-success/10 text-success border-success/20 text-xs">Done</Badge>
+                              ) : (
+                                <Badge className="bg-destructive/10 text-destructive border-destructive/20 text-xs">Error</Badge>
+                              )}
+                            </td>
+                            <td className="px-3 py-1.5 font-mono text-xs text-right text-muted-foreground">{srcSize}</td>
+                            <td className="px-3 py-1.5 font-mono text-xs text-right">{r.nodes ?? "—"}</td>
+                            <td className="px-3 py-1.5 font-mono text-xs text-right">{r.links ?? "—"}</td>
+                            <td className="px-3 py-1.5 font-mono text-xs text-right text-muted-foreground">{outSize}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-muted/50 border-t-2 border-border">
+                        <td className="px-3 py-2 font-mono text-xs font-bold text-foreground">
+                          Total ({doneCount} file{doneCount !== 1 ? "s" : ""})
+                        </td>
+                        <td className="px-3 py-2" />
+                        <td className="px-3 py-2 font-mono text-xs text-right font-bold text-foreground">
+                          {(allFiles.reduce((sum, f, i) => results[i]?.status === "done" ? sum + f.size : sum, 0) / 1024).toFixed(1)}
+                        </td>
+                        <td className="px-3 py-2 font-mono text-xs text-right font-bold text-primary">
+                          {results.reduce((sum, r) => r.status === "done" ? sum + (r.nodes || 0) : sum, 0)}
+                        </td>
+                        <td className="px-3 py-2 font-mono text-xs text-right font-bold text-primary">
+                          {results.reduce((sum, r) => r.status === "done" ? sum + (r.links || 0) : sum, 0)}
+                        </td>
+                        <td className="px-3 py-2 font-mono text-xs text-right font-bold text-foreground">
+                          {(results.reduce((sum, r) => r.status === "done" && r.inp ? sum + new Blob([r.inp]).size : sum, 0) / 1024).toFixed(1)}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Info */}
           <Card>
             <CardContent className="py-4">
