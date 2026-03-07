@@ -235,13 +235,59 @@ export interface XPTransectPoint {
 
 export interface XPTransect {
   name: string;
-  linkIdx: number;       // OI of the associated link
-  nLeft: number;         // Manning's n for left overbank
-  nRight: number;        // Manning's n for right overbank
-  nChannel: number;      // Manning's n for main channel
-  leftBank: number;      // Station of left bank
-  rightBank: number;     // Station of right bank
+  linkIdx: number;
+  nLeft: number;
+  nRight: number;
+  nChannel: number;
+  leftBank: number;
+  rightBank: number;
   points: XPTransectPoint[];
+}
+
+export interface XPPollutant {
+  name: string;
+  units: string;        // mg/L, ug/L, #/L
+  cRain: number;        // Concentration in rain
+  cGW: number;          // Concentration in groundwater
+  cRDII: number;        // Concentration in RDII
+  cInit: number;        // Initial concentration
+  decayCoeff: number;   // First-order decay coefficient (1/day)
+  snowOnly: boolean;    // Applies to snow only
+  coPollutant: string;  // Co-pollutant name
+  coFraction: number;   // Co-pollutant fraction
+}
+
+export interface XPLanduse {
+  name: string;
+  sweepInterval: number;
+  sweepFraction: number;
+  sweepAvail: number;
+}
+
+export interface XPLoading {
+  subcatchment: string;
+  pollutant: string;
+  value: number;
+}
+
+export interface XPBuildup {
+  landuse: string;
+  pollutant: string;
+  funcType: string;    // POW, EXP, SAT, EXT
+  c1: number;          // Max buildup or coefficient
+  c2: number;          // Rate constant
+  c3: number;          // Time exponent or half-sat constant
+  perUnit: string;     // AREA or CURBLENGTH
+}
+
+export interface XPWashoff {
+  landuse: string;
+  pollutant: string;
+  funcType: string;    // EXP, RC, EMC
+  c1: number;          // Coefficient
+  c2: number;          // Exponent
+  sweepEffic: number;  // Sweep removal efficiency
+  bmPct: number;       // BMP removal efficiency
 }
 
 export interface XPParseResult {
@@ -251,6 +297,11 @@ export interface XPParseResult {
   timeSeries: XPTimeSeries[];
   pumpCurves: XPPumpCurve[];
   transects: XPTransect[];
+  pollutants: XPPollutant[];
+  landuses: XPLanduse[];
+  loadings: XPLoading[];
+  buildups: XPBuildup[];
+  washoffs: XPWashoff[];
   jobControl: Record<string, string>;
   rawCards: Record<string, { data: string }[]>;
   format: string;
