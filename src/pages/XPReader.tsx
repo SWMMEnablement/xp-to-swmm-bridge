@@ -168,6 +168,9 @@ const XPReader = () => {
                   {result.pumpCurves.length > 0 && (
                     <TabsTrigger value="pumpcurves" className="font-mono text-xs">Pump Curves <Badge variant="secondary" className="ml-1 text-xs">{result.pumpCurves.length}</Badge></TabsTrigger>
                   )}
+                  {result.transects.length > 0 && (
+                    <TabsTrigger value="transects" className="font-mono text-xs">Transects <Badge variant="secondary" className="ml-1 text-xs">{result.transects.length}</Badge></TabsTrigger>
+                  )}
                   <TabsTrigger value="jobctrl" className="font-mono text-xs">Job Control</TabsTrigger>
                   <TabsTrigger value="map" className="font-mono text-xs">Network Map</TabsTrigger>
                   <TabsTrigger value="rawcards" className="font-mono text-xs">Raw Cards <Badge variant="secondary" className="ml-1 text-xs">{Object.keys(result.rawCards).length}</Badge></TabsTrigger>
