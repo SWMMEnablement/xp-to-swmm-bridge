@@ -651,6 +651,57 @@ export class XPParser {
         }
       }
     }
+
+    // Phase 11: Pump Curves from H1A/H2/H3 cards
+    const pumpLinks = this.links.filter(l => l.type === 'Pump' && l.iptyp && l.iptyp > 0);
+    for (const pl of pumpLinks) {
+      const oi = pl.idx;
+      const iptyp = pl.iptyp || 0;
+      const curveName = pl.psel?.trim() || `PC_${pl.name}`;
+      const swmmType: Record<number, string> = { 1: 'Pump1', 2: 'Pump2', 3: 'Pump3', 4: 'Pump4' };
+
+      // Collect curve data points from H2 cards
+      const curvePoints: XPPumpCurvePoint[] = [];
+      const h2Subs = rec['EXTR:H2']?.[oi];
+      if (h2Subs) {
+        for (const [, records] of Object.entries(h2Subs)) {
+          for (const data of records) {
+            const vals = data.trim().split(/\s+/).map(Number).filter(v => !isNaN(v));
+            for (let i = 0; i < vals.length - 1; i += 2) {
+              curvePoints.push({ x: vals[i], y: vals[i + 1] });
+            }
+          }
+        }
+      }
+
+      // Also check H3 cards for additional curve data
+      const h3Subs = rec['EXTR:H3']?.[oi];
+      if (h3Subs) {
+        for (const [, records] of Object.entries(h3Subs)) {
+          for (const data of records) {
+            const vals = data.trim().split(/\s+/).map(Number).filter(v => !isNaN(v));
+            for (let i = 0; i < vals.length - 1; i += 2) {
+              curvePoints.push({ x: vals[i], y: vals[i + 1] });
+            }
+          }
+        }
+      }
+
+      // Sort by x-value
+      curvePoints.sort((a, b) => a.x - b.x);
+
+      // Update the pump link to reference this curve name
+      pl.psel = curveName;
+
+      this.pumpCurves.push({
+        name: curveName,
+        linkIdx: oi,
+        pumpType: iptyp,
+        pumpTypeName: PUMP_CODES[iptyp] || `Type ${iptyp}`,
+        curveType: swmmType[iptyp] || 'Pump2',
+        points: curvePoints,
+      });
+    }
   }
 
   private parseSWMM34(lines: string[]) {
