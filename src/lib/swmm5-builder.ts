@@ -140,7 +140,11 @@ SKIP_STEADY_STATE    NO
     };
     cd.forEach(l => {
       const s = shapeMap[l.nklass || 0] || 'CIRCULAR';
-      inp += `${pd(l.name, 16)} ${pd(s, 12)} ${pd(f(l.deep), 10)} ${pd(f(l.wide), 10)} 0          0          ${l.barrel || 1}\n`;
+      if (s === 'IRREGULAR' && l.transectName) {
+        inp += `${pd(l.name, 16)} ${pd('IRREGULAR', 12)} ${pd(l.transectName, 10)} 0          0          0          ${l.barrel || 1}\n`;
+      } else {
+        inp += `${pd(l.name, 16)} ${pd(s, 12)} ${pd(f(l.deep), 10)} ${pd(f(l.wide), 10)} 0          0          ${l.barrel || 1}\n`;
+      }
     });
     orf.forEach(l => {
       const s = (l.onklass === 2) ? 'CIRCULAR' : 'RECT_CLOSED';
