@@ -144,6 +144,9 @@ const XPReader = () => {
                     {result.timeSeries.length > 0 && (
                       <Badge className="bg-warning/10 text-warning border-warning/20">{result.timeSeries.length} time series</Badge>
                     )}
+                    {result.pumpCurves.length > 0 && (
+                      <Badge className="bg-primary/10 text-primary border-primary/20">{result.pumpCurves.length} pump curves</Badge>
+                    )}
                   </div>
                 </CardContent>
               </Card>
