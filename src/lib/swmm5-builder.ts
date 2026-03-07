@@ -159,6 +159,26 @@ SKIP_STEADY_STATE    NO
     inp += '\n';
   }
 
+  // Transects (HEC-2 format for irregular cross-sections)
+  const transects = p.transects || [];
+  if (transects.length) {
+    inp += `[TRANSECTS]\n`;
+    transects.forEach(t => {
+      if (t.points.length === 0) return;
+      inp += `NC  ${f(t.nLeft, 4)}  ${f(t.nRight, 4)}  ${f(t.nChannel, 4)}\n`;
+      inp += `X1  ${pd(t.name, 16)} ${t.points.length}      ${f(t.leftBank, 2)}     ${f(t.rightBank, 2)}     0.0     0.0     0.0     0.0     0.0\n`;
+      for (let i = 0; i < t.points.length; i += 4) {
+        let gr = 'GR  ';
+        for (let j = i; j < Math.min(i + 4, t.points.length); j++) {
+          gr += `${f(t.points[j].elevation, 3)}  ${f(t.points[j].station, 3)}  `;
+        }
+        inp += gr.trimEnd() + '\n';
+      }
+      inp += `;\n`;
+    });
+    inp += '\n';
+  }
+
   if (cd.length) {
     inp += `[LOSSES]\n;;Link           Inlet      Outlet     Average    Flap Gate\n;;-------------- ---------- ---------- ---------- ----------\n`;
     cd.forEach(l => {
