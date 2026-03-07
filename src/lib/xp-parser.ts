@@ -265,6 +265,7 @@ export class XPParser {
   subcatchments: XPSubcatchment[] = [];
   timeSeries: XPTimeSeries[] = [];
   pumpCurves: XPPumpCurve[] = [];
+  transects: XPTransect[] = [];
   jobControl: Record<string, string> = {};
   rawCards: Record<string, { data: string }[]> = {};
   format = 'unknown';
