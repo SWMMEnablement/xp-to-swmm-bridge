@@ -8,7 +8,8 @@ import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { XPParser } from "@/lib/xp-parser";
 import { buildINP } from "@/lib/swmm5-builder";
-import { Github, FileDown, Loader2, CheckCircle2, XCircle, FolderTree, AlertCircle, FolderOpen, Upload } from "lucide-react";
+import JSZip from "jszip";
+import { Github, FileDown, Loader2, CheckCircle2, XCircle, FolderTree, AlertCircle, FolderOpen, Upload, Archive } from "lucide-react";
 
 interface RepoFile {
   name: string;
@@ -93,6 +94,20 @@ function downloadAll(results: ConversionResult[]) {
   results.filter(r => r.status === "done" && r.inp).forEach(r => {
     triggerDownload(r.inp!, r.file.replace(/\.xp$/i, ".inp"));
   });
+}
+
+async function downloadAsZip(results: ConversionResult[]) {
+  const zip = new JSZip();
+  results.filter(r => r.status === "done" && r.inp).forEach(r => {
+    zip.file(r.file.replace(/\.xp$/i, ".inp"), r.inp!);
+  });
+  const blob = await zip.generateAsync({ type: "blob" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "swmm5_converted.zip";
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 type SourceMode = "github" | "folder";
@@ -349,10 +364,16 @@ const GitHubBatch = () => {
                       {converting ? "Converting..." : `Convert ${selectedCount} File${selectedCount !== 1 ? "s" : ""}`}
                     </Button>
                     {doneCount > 0 && (
-                      <Button size="sm" variant="outline" onClick={() => downloadAll(results)}>
-                        <FileDown className="h-4 w-4 mr-2" />
-                        Download {doneCount} .inp
-                      </Button>
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => downloadAll(results)}>
+                          <FileDown className="h-4 w-4 mr-2" />
+                          Download {doneCount} .inp
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => downloadAsZip(results)}>
+                          <Archive className="h-4 w-4 mr-2" />
+                          Download ZIP
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>
