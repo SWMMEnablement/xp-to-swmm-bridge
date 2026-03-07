@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { XPParser, type XPParseResult, type XPNode, type XPLink, type XPSubcatchment, type XPTimeSeries, type XPPumpCurve, type XPTransect, DB, SHAPE_CODES, ROUTING_CODES, PUMP_CODES } from "@/lib/xp-parser";
+import { XPParser, type XPParseResult, type XPNode, type XPLink, type XPSubcatchment, type XPTimeSeries, type XPPumpCurve, type XPTransect, type XPPollutant, DB, SHAPE_CODES, ROUTING_CODES, PUMP_CODES } from "@/lib/xp-parser";
 import { buildINP, buildCSV } from "@/lib/swmm5-builder";
 import { Upload, FileDown, Map, Table, Settings, FileText, Search } from "lucide-react";
 
@@ -150,6 +150,9 @@ const XPReader = () => {
                     {result.transects.length > 0 && (
                       <Badge className="bg-success/10 text-success border-success/20">{result.transects.length} transects</Badge>
                     )}
+                    {result.pollutants.length > 0 && (
+                      <Badge className="bg-destructive/10 text-destructive border-destructive/20">{result.pollutants.length} pollutants</Badge>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -170,6 +173,9 @@ const XPReader = () => {
                   )}
                   {result.transects.length > 0 && (
                     <TabsTrigger value="transects" className="font-mono text-xs">Transects <Badge variant="secondary" className="ml-1 text-xs">{result.transects.length}</Badge></TabsTrigger>
+                  )}
+                  {result.pollutants.length > 0 && (
+                    <TabsTrigger value="pollutants" className="font-mono text-xs">Pollutants <Badge variant="secondary" className="ml-1 text-xs">{result.pollutants.length}</Badge></TabsTrigger>
                   )}
                   <TabsTrigger value="jobctrl" className="font-mono text-xs">Job Control</TabsTrigger>
                   <TabsTrigger value="map" className="font-mono text-xs">Network Map</TabsTrigger>
