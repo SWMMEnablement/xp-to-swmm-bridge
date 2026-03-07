@@ -186,6 +186,7 @@ const XPReader = () => {
                       { label: 'Subcatchments', value: result.subcatchments.length, color: 'text-accent-foreground' },
                       { label: 'Time Series', value: result.timeSeries.length, color: 'text-warning' },
                       { label: 'Pump Curves', value: result.pumpCurves.length, color: 'text-primary' },
+                      { label: 'Transects', value: result.transects.length, color: 'text-success' },
                       { label: 'Junctions', value: stats?.nt.Junction || 0, color: 'text-primary' },
                       { label: 'Outfalls', value: stats?.nt.Outfall || 0, color: 'text-warning' },
                       { label: 'Storage', value: stats?.nt.Storage || 0, color: 'text-primary' },
@@ -490,6 +491,123 @@ const XPReader = () => {
                                 </>
                               ) : (
                                 <p className="text-sm text-muted-foreground">No curve data points found — pump references curve by name only.</p>
+                              )}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </TabsContent>
+                )}
+
+                {/* Transects */}
+                {result.transects.length > 0 && (
+                  <TabsContent value="transects">
+                    <div className="space-y-4">
+                      {result.transects.map((t, i) => {
+                        const link = result.links.find(l => l.idx === t.linkIdx);
+                        const minElev = t.points.length > 0 ? Math.min(...t.points.map(p => p.elevation)) : 0;
+                        const maxElev = t.points.length > 0 ? Math.max(...t.points.map(p => p.elevation)) : 1;
+                        const maxStation = t.points.length > 0 ? t.points[t.points.length - 1].station : 1;
+                        const minStation = t.points.length > 0 ? t.points[0].station : 0;
+                        const elevRange = maxElev - minElev || 1;
+                        const staRange = maxStation - minStation || 1;
+                        return (
+                          <Card key={i}>
+                            <CardHeader className="py-3">
+                              <div className="flex items-center gap-3 flex-wrap">
+                                <CardTitle className="text-sm font-mono">{t.name}</CardTitle>
+                                <Badge variant="outline" className="font-mono text-xs">IRREGULAR</Badge>
+                                <span className="text-xs text-muted-foreground font-mono">
+                                  Link: {link?.name || `OI_${t.linkIdx}`} • {t.points.length} stations •
+                                  n={f(t.nChannel, 4)} • Banks: {f(t.leftBank)}–{f(t.rightBank)}
+                                </span>
+                              </div>
+                            </CardHeader>
+                            <CardContent className="py-2">
+                              {t.points.length > 0 ? (
+                                <>
+                                  <div className="border rounded-lg overflow-hidden mb-3">
+                                    <svg viewBox="0 0 600 180" className="w-full" style={{ height: 180 }}>
+                                      <rect width={600} height={180} fill="hsl(var(--card))" />
+                                      {/* Axes */}
+                                      <line x1={50} y1={160} x2={580} y2={160} stroke="hsl(var(--border))" strokeWidth={1} />
+                                      <line x1={50} y1={10} x2={50} y2={160} stroke="hsl(var(--border))" strokeWidth={1} />
+                                      {/* Fill under curve */}
+                                      <polygon
+                                        fill="hsl(var(--primary))"
+                                        opacity={0.15}
+                                        points={[
+                                          `${50 + ((t.points[0]?.station || 0) - minStation) / staRange * 520},160`,
+                                          ...t.points.map(pt => {
+                                            const px = 50 + (pt.station - minStation) / staRange * 520;
+                                            const py = 160 - ((pt.elevation - minElev) / elevRange) * 140;
+                                            return `${px},${py}`;
+                                          }),
+                                          `${50 + ((t.points[t.points.length - 1]?.station || 0) - minStation) / staRange * 520},160`,
+                                        ].join(' ')}
+                                      />
+                                      {/* Cross-section line */}
+                                      <polyline
+                                        fill="none"
+                                        stroke="hsl(var(--primary))"
+                                        strokeWidth={2}
+                                        points={t.points.map(pt => {
+                                          const px = 50 + (pt.station - minStation) / staRange * 520;
+                                          const py = 160 - ((pt.elevation - minElev) / elevRange) * 140;
+                                          return `${px},${py}`;
+                                        }).join(' ')}
+                                      />
+                                      {/* Bank station markers */}
+                                      {[t.leftBank, t.rightBank].map((bank, bi) => {
+                                        const bx = 50 + (bank - minStation) / staRange * 520;
+                                        return (
+                                          <line key={bi} x1={bx} y1={10} x2={bx} y2={160}
+                                            stroke="hsl(var(--warning))" strokeWidth={1} strokeDasharray="4,3" opacity={0.7}>
+                                            <title>{bi === 0 ? 'Left' : 'Right'} bank: {f(bank)}</title>
+                                          </line>
+                                        );
+                                      })}
+                                      {/* Points */}
+                                      {t.points.map((pt, j) => {
+                                        const px = 50 + (pt.station - minStation) / staRange * 520;
+                                        const py = 160 - ((pt.elevation - minElev) / elevRange) * 140;
+                                        return (
+                                          <circle key={j} cx={px} cy={py} r={2.5} fill="hsl(var(--primary))">
+                                            <title>Sta={f(pt.station, 3)}, Elev={f(pt.elevation, 3)}</title>
+                                          </circle>
+                                        );
+                                      })}
+                                      {/* Labels */}
+                                      <text x={315} y={175} fill="hsl(var(--muted-foreground))" fontSize={9} fontFamily="monospace" textAnchor="middle">Station</text>
+                                      <text x={10} y={90} fill="hsl(var(--muted-foreground))" fontSize={9} fontFamily="monospace" transform="rotate(-90 10 90)">Elevation</text>
+                                      <text x={55} y={10} fill="hsl(var(--muted-foreground))" fontSize={8} fontFamily="monospace">{f(maxElev, 2)}</text>
+                                      <text x={55} y={158} fill="hsl(var(--muted-foreground))" fontSize={8} fontFamily="monospace">{f(minElev, 2)}</text>
+                                    </svg>
+                                  </div>
+                                  <div className="overflow-x-auto border rounded-lg max-h-48">
+                                    <table className="w-full text-xs">
+                                      <thead>
+                                        <tr className="bg-muted/50 border-b">
+                                          <th className="px-3 py-1 text-left font-mono text-muted-foreground">#</th>
+                                          <th className="px-3 py-1 text-right font-mono text-muted-foreground">Station</th>
+                                          <th className="px-3 py-1 text-right font-mono text-muted-foreground">Elevation</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {t.points.map((pt, j) => (
+                                          <tr key={j} className="border-b border-border/50 hover:bg-muted/30">
+                                            <td className="px-3 py-0.5 font-mono text-muted-foreground">{j + 1}</td>
+                                            <td className="px-3 py-0.5 font-mono text-right">{f(pt.station, 4)}</td>
+                                            <td className="px-3 py-0.5 font-mono text-right text-primary">{f(pt.elevation, 4)}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </>
+                              ) : (
+                                <p className="text-sm text-muted-foreground">No station-elevation data found for this transect.</p>
                               )}
                             </CardContent>
                           </Card>
