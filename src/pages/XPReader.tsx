@@ -147,6 +147,9 @@ const XPReader = () => {
                     {result.pumpCurves.length > 0 && (
                       <Badge className="bg-primary/10 text-primary border-primary/20">{result.pumpCurves.length} pump curves</Badge>
                     )}
+                    {result.transects.length > 0 && (
+                      <Badge className="bg-success/10 text-success border-success/20">{result.transects.length} transects</Badge>
+                    )}
                   </div>
                 </CardContent>
               </Card>
