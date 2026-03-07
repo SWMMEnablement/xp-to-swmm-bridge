@@ -79,6 +79,30 @@ export const DB: Record<string, FieldDef> = {
   AJ1:{g:'EXTR',c:'BB2',p:24,w:8,t:2}, AJ2:{g:'EXTR',c:'BB2',p:33,w:8,t:2},
   ISMTH:{g:'EXTR',c:'BB2',p:51,w:8,t:1}, KSUPER:{g:'EXTR',c:'BB2',p:77,w:1,t:3},
   ISOL:{g:'EXTR',c:'BB2',p:78,w:1,t:3}, KINE:{g:'EXTR',c:'BB2',p:79,w:1,t:3},
+  // Runoff block (RNFF) subcatchment fields
+  SNAME:{g:'RNFF',c:'R1',p:1,w:10,t:5},    // Subcatchment name
+  SAREA:{g:'RNFF',c:'R1',p:11,w:10,t:2},    // Area (acres or hectares)
+  SWID:{g:'RNFF',c:'R1',p:21,w:10,t:2},     // Width (ft or m)
+  SSLOPE:{g:'RNFF',c:'R1',p:31,w:10,t:2},   // Slope (%)
+  SIMPERV:{g:'RNFF',c:'R1',p:41,w:10,t:2},  // % Imperviousness
+  SOUTLET:{g:'RNFF',c:'R1',p:51,w:10,t:5},  // Outlet node name
+  SNIMP:{g:'RNFF',c:'R2',p:1,w:10,t:2},     // Manning's N impervious
+  SNPERV:{g:'RNFF',c:'R2',p:11,w:10,t:2},   // Manning's N pervious
+  SDSIP:{g:'RNFF',c:'R2',p:21,w:10,t:2},    // Depression storage imperv (in/mm)
+  SDSPV:{g:'RNFF',c:'R2',p:31,w:10,t:2},    // Depression storage perv (in/mm)
+  SPZIMP:{g:'RNFF',c:'R2',p:41,w:10,t:2},   // % zero imperv storage
+  SROUTE:{g:'RNFF',c:'R2',p:51,w:10,t:3},   // Routing: 0=Outlet, 1=Imperv, 2=Perv
+  SF0:{g:'RNFF',c:'R3',p:1,w:10,t:2},       // Horton max infil rate
+  SFF:{g:'RNFF',c:'R3',p:11,w:10,t:2},      // Horton min infil rate
+  SFDECAY:{g:'RNFF',c:'R3',p:21,w:10,t:2},  // Horton decay constant (1/hr)
+  SFDRY:{g:'RNFF',c:'R3',p:31,w:10,t:2},    // Drying time (days)
+  SFMAXVOL:{g:'RNFF',c:'R3',p:41,w:10,t:2}, // Max volume (in/mm)
+  SCURVEN:{g:'RNFF',c:'R4',p:1,w:10,t:2},   // SCS Curve Number
+  SCONDUC:{g:'RNFF',c:'R4',p:11,w:10,t:2},  // Hydraulic conductivity
+  SHEAD:{g:'RNFF',c:'R4',p:21,w:10,t:2},    // Suction head
+  SIMD:{g:'RNFF',c:'R4',p:31,w:10,t:2},     // Initial moisture deficit
+  SRGNAME:{g:'RNFF',c:'R5',p:1,w:10,t:5},   // Rain gage name
+  SSNOW:{g:'RNFF',c:'R5',p:11,w:1,t:4},     // Snow flag
 };
 
 export interface XPNode {
@@ -136,9 +160,40 @@ export interface XPLink {
   [key: string]: unknown;
 }
 
+export interface XPSubcatchment {
+  idx: number;
+  name: string;
+  area: number;
+  width: number;
+  slope: number;
+  imperv: number;
+  outlet: string;
+  nImperv: number;
+  nPerv: number;
+  dsImperv: number;
+  dsPerv: number;
+  pctZero: number;
+  routeTo: string;
+  // Infiltration (Horton)
+  f0: number;
+  ff: number;
+  fDecay: number;
+  fDry: number;
+  fMaxVol: number;
+  // Infiltration (Green-Ampt / Curve Number)
+  curveNum: number;
+  conduc: number;
+  suctionHead: number;
+  initMoisDef: number;
+  // Rain gage
+  rainGage: string;
+  [key: string]: unknown;
+}
+
 export interface XPParseResult {
   nodes: XPNode[];
   links: XPLink[];
+  subcatchments: XPSubcatchment[];
   jobControl: Record<string, string>;
   rawCards: Record<string, { data: string }[]>;
   format: string;
