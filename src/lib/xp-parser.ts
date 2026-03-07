@@ -290,6 +290,29 @@ export interface XPWashoff {
   bmPct: number;       // BMP removal efficiency
 }
 
+export interface XPControlCondition {
+  variable: string;       // NODE/LINK
+  id: string;             // Element name
+  attribute: string;      // DEPTH, HEAD, FLOW, VOLUME, STATUS, SETTING
+  relation: string;       // >, <, =, >=, <=, <>
+  value: string;          // Threshold value or status
+}
+
+export interface XPControlAction {
+  link: string;           // Link name (pump, orifice, weir)
+  attribute: string;      // STATUS, SETTING
+  value: string;          // ON, OFF, or numeric setting
+}
+
+export interface XPControlRule {
+  name: string;
+  priority: number;
+  conditions: XPControlCondition[];
+  conditionLogic: string; // AND / OR between conditions
+  actions: XPControlAction[];
+  elseActions: XPControlAction[];
+}
+
 export interface XPParseResult {
   nodes: XPNode[];
   links: XPLink[];
@@ -297,6 +320,7 @@ export interface XPParseResult {
   timeSeries: XPTimeSeries[];
   pumpCurves: XPPumpCurve[];
   transects: XPTransect[];
+  controlRules: XPControlRule[];
   pollutants: XPPollutant[];
   landuses: XPLanduse[];
   loadings: XPLoading[];
@@ -318,6 +342,7 @@ export class XPParser {
   timeSeries: XPTimeSeries[] = [];
   pumpCurves: XPPumpCurve[] = [];
   transects: XPTransect[] = [];
+  controlRules: XPControlRule[] = [];
   pollutants: XPPollutant[] = [];
   landuses: XPLanduse[] = [];
   loadings: XPLoading[] = [];
@@ -352,6 +377,7 @@ export class XPParser {
     return {
       nodes: this.nodes, links: this.links, subcatchments: this.subcatchments,
       timeSeries: this.timeSeries, pumpCurves: this.pumpCurves, transects: this.transects,
+      controlRules: this.controlRules,
       pollutants: this.pollutants, landuses: this.landuses, loadings: this.loadings,
       buildups: this.buildups, washoffs: this.washoffs,
       jobControl: this.jobControl, rawCards: this.rawCards,
