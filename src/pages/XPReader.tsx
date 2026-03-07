@@ -200,6 +200,7 @@ const XPReader = () => {
                       { label: 'Pump Curves', value: result.pumpCurves.length, color: 'text-primary' },
                       { label: 'Transects', value: result.transects.length, color: 'text-success' },
                       { label: 'Pollutants', value: result.pollutants.length, color: 'text-destructive' },
+                      { label: 'Controls', value: result.controlRules.length, color: 'text-warning' },
                       { label: 'Junctions', value: stats?.nt.Junction || 0, color: 'text-primary' },
                       { label: 'Outfalls', value: stats?.nt.Outfall || 0, color: 'text-warning' },
                       { label: 'Storage', value: stats?.nt.Storage || 0, color: 'text-primary' },
