@@ -18,11 +18,12 @@ const Documentation = () => {
           </div>
 
           <Tabs defaultValue="supported" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="supported">Supported Elements</TabsTrigger>
               <TabsTrigger value="mapping">Element Mapping</TabsTrigger>
               <TabsTrigger value="limitations">Limitations</TabsTrigger>
               <TabsTrigger value="process">Process</TabsTrigger>
+              <TabsTrigger value="handover">Handover</TabsTrigger>
             </TabsList>
 
             <TabsContent value="supported" className="space-y-4 mt-6">
