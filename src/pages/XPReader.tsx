@@ -379,7 +379,12 @@ const XPReader = () => {
                         <Button onClick={() => download(buildCSV(result.links as any), 'xpswmm_links.csv', 'text/csv')}>
                           <FileDown className="h-4 w-4 mr-2" /> Links CSV
                         </Button>
-                        <Button variant="outline" onClick={() => download(JSON.stringify({ format: result.format, title: result.title, nodes: result.nodes, links: result.links, jobControl: result.jobControl }, null, 2), 'xpswmm_data.json', 'application/json')}>
+                        {result.subcatchments.length > 0 && (
+                          <Button onClick={() => download(buildCSV(result.subcatchments as any), 'xpswmm_subcatchments.csv', 'text/csv')}>
+                            <FileDown className="h-4 w-4 mr-2" /> Subcatchments CSV
+                          </Button>
+                        )}
+                        <Button variant="outline" onClick={() => download(JSON.stringify({ format: result.format, title: result.title, nodes: result.nodes, links: result.links, subcatchments: result.subcatchments, jobControl: result.jobControl }, null, 2), 'xpswmm_data.json', 'application/json')}>
                           Full JSON
                         </Button>
                         <Button variant="outline" onClick={() => download(buildINP(result), 'xpswmm_converted.inp', 'text/plain')}>
