@@ -227,12 +227,29 @@ export interface XPPumpCurve {
   points: XPPumpCurvePoint[];
 }
 
+export interface XPTransectPoint {
+  station: number;
+  elevation: number;
+}
+
+export interface XPTransect {
+  name: string;
+  linkIdx: number;       // OI of the associated link
+  nLeft: number;         // Manning's n for left overbank
+  nRight: number;        // Manning's n for right overbank
+  nChannel: number;      // Manning's n for main channel
+  leftBank: number;      // Station of left bank
+  rightBank: number;     // Station of right bank
+  points: XPTransectPoint[];
+}
+
 export interface XPParseResult {
   nodes: XPNode[];
   links: XPLink[];
   subcatchments: XPSubcatchment[];
   timeSeries: XPTimeSeries[];
   pumpCurves: XPPumpCurve[];
+  transects: XPTransect[];
   jobControl: Record<string, string>;
   rawCards: Record<string, { data: string }[]>;
   format: string;
@@ -276,7 +293,7 @@ export class XPParser {
   getResult(): XPParseResult {
     return {
       nodes: this.nodes, links: this.links, subcatchments: this.subcatchments,
-      timeSeries: this.timeSeries, pumpCurves: this.pumpCurves,
+      timeSeries: this.timeSeries, pumpCurves: this.pumpCurves, transects: this.transects,
       jobControl: this.jobControl, rawCards: this.rawCards,
       format: this.format, title: this.title, warnings: this.warnings
     };
