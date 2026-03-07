@@ -166,6 +166,7 @@ export interface XPLink {
   pumpType?: string;
   weirType?: string;
   zp?: number;
+  transectName?: string;
   [key: string]: unknown;
 }
 
