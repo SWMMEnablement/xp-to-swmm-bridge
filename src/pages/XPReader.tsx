@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { XPParser, type XPParseResult, type XPNode, type XPLink, type XPSubcatchment, DB, SHAPE_CODES, ROUTING_CODES } from "@/lib/xp-parser";
+import { XPParser, type XPParseResult, type XPNode, type XPLink, type XPSubcatchment, type XPTimeSeries, DB, SHAPE_CODES, ROUTING_CODES } from "@/lib/xp-parser";
 import { buildINP, buildCSV } from "@/lib/swmm5-builder";
 import { Upload, FileDown, Map, Table, Settings, FileText, Search } from "lucide-react";
 
@@ -141,6 +141,9 @@ const XPReader = () => {
                     {result.subcatchments.length > 0 && (
                       <Badge className="bg-accent/10 text-accent-foreground border-accent/20">{result.subcatchments.length} subcatchments</Badge>
                     )}
+                    {result.timeSeries.length > 0 && (
+                      <Badge className="bg-warning/10 text-warning border-warning/20">{result.timeSeries.length} time series</Badge>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -152,6 +155,9 @@ const XPReader = () => {
                   <TabsTrigger value="links" className="font-mono text-xs">Links <Badge variant="secondary" className="ml-1 text-xs">{result.links.length}</Badge></TabsTrigger>
                   {result.subcatchments.length > 0 && (
                     <TabsTrigger value="subcatchments" className="font-mono text-xs">Subcatchments <Badge variant="secondary" className="ml-1 text-xs">{result.subcatchments.length}</Badge></TabsTrigger>
+                  )}
+                  {result.timeSeries.length > 0 && (
+                    <TabsTrigger value="timeseries" className="font-mono text-xs">Time Series <Badge variant="secondary" className="ml-1 text-xs">{result.timeSeries.length}</Badge></TabsTrigger>
                   )}
                   <TabsTrigger value="jobctrl" className="font-mono text-xs">Job Control</TabsTrigger>
                   <TabsTrigger value="map" className="font-mono text-xs">Network Map</TabsTrigger>
