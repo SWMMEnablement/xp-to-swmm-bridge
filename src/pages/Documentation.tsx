@@ -18,11 +18,12 @@ const Documentation = () => {
           </div>
 
           <Tabs defaultValue="supported" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="supported">Supported Elements</TabsTrigger>
               <TabsTrigger value="mapping">Element Mapping</TabsTrigger>
               <TabsTrigger value="limitations">Limitations</TabsTrigger>
               <TabsTrigger value="process">Process</TabsTrigger>
+              <TabsTrigger value="handover">Handover</TabsTrigger>
             </TabsList>
 
             <TabsContent value="supported" className="space-y-4 mt-6">
@@ -895,6 +896,279 @@ const Documentation = () => {
                         </p>
                       </div>
                     </div>
+                  </div>
+                </div>
+              </Card>
+            </TabsContent>
+
+            {/* Handover Tab */}
+            <TabsContent value="handover" className="space-y-4 mt-6">
+              <Card className="p-6">
+                <h2 className="text-2xl font-semibold text-foreground mb-4">
+                  Project Handover Reference
+                </h2>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Complete technical reference for using this project elsewhere. Also available as <code className="bg-muted px-1 rounded font-mono text-xs">HANDOVER.md</code> in the repo root.
+                </p>
+
+                <div className="space-y-8">
+                  {/* Architecture */}
+                  <div>
+                    <h3 className="text-lg font-medium text-foreground mb-3 flex items-center gap-2">
+                      <FileCode className="h-5 w-5 text-primary" />
+                      Architecture
+                    </h3>
+                    <div className="bg-muted/50 p-4 rounded-lg font-mono text-xs leading-relaxed whitespace-pre text-muted-foreground overflow-x-auto">
+{`┌─────────────────────────────────────────────┐
+│                Browser (Client-side)         │
+│                                              │
+│  .xp file ──▶ XPParser ──▶ XPParseResult    │
+│     (text)     (parse)       │               │
+│                          ┌───▼────┐          │
+│                          │buildINP│          │
+│                          └───┬────┘          │
+│                          ┌───▼────┐          │
+│                          │ .inp   │          │
+│                          │ file   │          │
+│                          └────────┘          │
+└──────────────────────────────────────────────┘`}
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-2">Zero backend dependencies. GitHub batch uses public API directly from browser.</p>
+                  </div>
+
+                  {/* File Structure */}
+                  <div>
+                    <h3 className="text-lg font-medium text-foreground mb-3">File Structure</h3>
+                    <div className="bg-muted/50 p-4 rounded-lg font-mono text-xs leading-relaxed whitespace-pre text-muted-foreground overflow-x-auto">
+{`src/
+├── lib/
+│   ├── xp-parser.ts        # XP file parser (3 formats)
+│   └── swmm5-builder.ts    # SWMM5 .inp generator
+├── pages/
+│   ├── Index.tsx            # Landing page (drag-drop)
+│   ├── XPReader.tsx         # Card Reader (7 tabs)
+│   ├── GitHubBatch.tsx      # Batch converter (GitHub + folder)
+│   └── Documentation.tsx    # Docs + handover
+├── components/
+│   └── Header.tsx           # Nav + dark mode toggle
+├── index.css                # Design tokens (HSL)
+└── App.tsx                  # Routes: / /reader /github-batch /docs`}
+                    </div>
+                  </div>
+
+                  {/* Core Modules */}
+                  <div>
+                    <h3 className="text-lg font-medium text-foreground mb-3">Core Modules</h3>
+                    <div className="space-y-4">
+                      <div className="border border-border rounded-lg p-4">
+                        <h4 className="font-semibold text-foreground mb-2 font-mono text-sm">XPParser (xp-parser.ts)</h4>
+                        <p className="text-sm text-muted-foreground mb-3">Handles three input formats:</p>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead><tr className="border-b border-border">
+                              <th className="text-left py-1 px-2 font-mono text-xs text-muted-foreground">Format</th>
+                              <th className="text-left py-1 px-2 font-mono text-xs text-muted-foreground">Detection</th>
+                              <th className="text-left py-1 px-2 font-mono text-xs text-muted-foreground">Method</th>
+                            </tr></thead>
+                            <tbody>
+                              <tr className="border-b border-border/50"><td className="py-1 px-2 font-mono text-xs text-primary">XPX</td><td className="py-1 px-2 text-xs text-muted-foreground">Contains [NODE] or [LINK]</td><td className="py-1 px-2 font-mono text-xs">parseXPX()</td></tr>
+                              <tr className="border-b border-border/50"><td className="py-1 px-2 font-mono text-xs text-primary">Native XP</td><td className="py-1 px-2 text-xs text-muted-foreground">Group codes (EXTR, ZZZN)</td><td className="py-1 px-2 font-mono text-xs">parseNativeXP()</td></tr>
+                              <tr><td className="py-1 px-2 font-mono text-xs text-primary">SWMM 3/4</td><td className="py-1 px-2 text-xs text-muted-foreground">Card IDs (D1, C1)</td><td className="py-1 px-2 font-mono text-xs">parseSWMM34()</td></tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      <div className="border border-border rounded-lg p-4">
+                        <h4 className="font-semibold text-foreground mb-2 font-mono text-sm">SWMM5 Builder (swmm5-builder.ts)</h4>
+                        <p className="text-sm text-muted-foreground mb-3">Generates these .inp sections:</p>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {['[TITLE]', '[OPTIONS]', '[JUNCTIONS]', '[OUTFALLS]', '[STORAGE]', '[CONDUITS]', '[ORIFICES]', '[WEIRS]', '[PUMPS]', '[XSECTIONS]', '[LOSSES]', '[INFLOWS]', '[COORDINATES]', '[MAP]', '[REPORT]'].map(s => (
+                            <div key={s} className="bg-muted/50 px-2 py-1 rounded font-mono text-xs text-primary">{s}</div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* DB Field Definition */}
+                  <div>
+                    <h3 className="text-lg font-medium text-foreground mb-3">DB Field Definition Structure</h3>
+                    <div className="bg-muted/50 p-4 rounded-lg font-mono text-xs text-muted-foreground overflow-x-auto whitespace-pre">
+{`interface FieldDef {
+  g: string;  // Group (e.g., 'EXTR')
+  c: string;  // Card  (e.g., 'C1', 'SP1N')
+  p: number;  // Column position (1-based)
+  w: number;  // Width in characters
+  t: number;  // Type: 1=int, 2=real, 3=coded, 4=flag, 5=string
+}
+
+// Example:
+NKLASS: { g:'EXTR', c:'C1', p:13, w:2, t:3 }  // Shape code at col 13, 2 chars wide`}
+                    </div>
+                  </div>
+
+                  {/* Element Mapping */}
+                  <div>
+                    <h3 className="text-lg font-medium text-foreground mb-3">Element Type Detection</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="border border-border rounded-lg p-4">
+                        <h4 className="font-semibold text-foreground mb-2 text-sm">Node Type</h4>
+                        <div className="font-mono text-xs text-muted-foreground space-y-1">
+                          <div><span className="text-warning">KO &gt; 0</span> → Outfall</div>
+                          <div><span className="text-primary">ASTORE &gt; 0 or ZTOP &gt; 0</span> → Storage</div>
+                          <div><span className="text-success">Otherwise</span> → Junction</div>
+                        </div>
+                      </div>
+                      <div className="border border-border rounded-lg p-4">
+                        <h4 className="font-semibold text-foreground mb-2 text-sm">Link Type (from SPDV flags)</h4>
+                        <div className="font-mono text-xs text-muted-foreground space-y-1">
+                          <div><span className="text-warning">ORIF1='1' or AORIF&gt;0</span> → Orifice</div>
+                          <div><span className="text-primary">WEIR1='1' or KWEIR&gt;0</span> → Weir</div>
+                          <div><span className="text-primary">PUMP1='1' or IPTYP&gt;0</span> → Pump</div>
+                          <div><span className="text-success">Otherwise</span> → Conduit</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Job Control Mapping */}
+                  <div>
+                    <h3 className="text-lg font-medium text-foreground mb-3">Job Control → SWMM5 Options</h3>
+                    <div className="overflow-x-auto border rounded-lg">
+                      <table className="w-full text-sm">
+                        <thead><tr className="bg-muted/50 border-b">
+                          <th className="text-left py-2 px-3 font-mono text-xs text-muted-foreground">XP Field</th>
+                          <th className="text-left py-2 px-3 font-mono text-xs text-muted-foreground">SWMM5 Option</th>
+                          <th className="text-left py-2 px-3 font-mono text-xs text-muted-foreground">Mapping</th>
+                        </tr></thead>
+                        <tbody>
+                          {[
+                            ['METRIC', 'FLOW_UNITS', '0→CFS, 1→CMS'],
+                            ['KINE', 'FLOW_ROUTING', '0→DYNWAVE, 3→KINWAVE, 4→DIFWAVE'],
+                            ['DELT', 'ROUTING_STEP', 'Seconds → HH:MM:SS'],
+                            ['MFAIL', 'MAX_TRIALS', 'Direct'],
+                            ['FUDGE', 'HEAD_TOLERANCE', 'Direct'],
+                            ['KINE', 'INERTIAL_DAMPING', '1→FULL, 2→NONE, else→PARTIAL'],
+                          ].map(([xp, swmm, map]) => (
+                            <tr key={xp + swmm} className="border-b border-border/50">
+                              <td className="py-1.5 px-3 font-mono text-xs text-primary">{xp}</td>
+                              <td className="py-1.5 px-3 font-mono text-xs text-foreground">{swmm}</td>
+                              <td className="py-1.5 px-3 text-xs text-muted-foreground">{map}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Key Card Types */}
+                  <div>
+                    <h3 className="text-lg font-medium text-foreground mb-3">Key XP Card Types</h3>
+                    <div className="overflow-x-auto border rounded-lg">
+                      <table className="w-full text-sm">
+                        <thead><tr className="bg-muted/50 border-b">
+                          <th className="text-left py-2 px-3 font-mono text-xs text-muted-foreground">Card</th>
+                          <th className="text-left py-2 px-3 font-mono text-xs text-muted-foreground">Contains</th>
+                        </tr></thead>
+                        <tbody>
+                          {[
+                            ['SP1N', 'Node name, X/Y coords, inflow flag, outfall flag'],
+                            ['D1', 'Ground elevation, initial depth, constant inflow'],
+                            ['J3', 'Outfall type (KO), head loss delta'],
+                            ['E1', 'Crown elevation (ZTOP), storage area (ASTORE)'],
+                            ['SPDN', 'Link name, upstream node, downstream node'],
+                            ['SPDV', 'Multi-conduit flags (conduit/pump/orifice/weir enables)'],
+                            ['C1', 'Shape (NKLASS), depth, width, length, inverts, roughness'],
+                            ['F1', 'Orifice area, coefficient, diameter'],
+                            ['G1', 'Weir type (KWEIR), crest height, length, coefficient'],
+                            ['H1A', 'Pump type (IPTYP), on/off levels, curve selection'],
+                            ['A1', 'Title line'],
+                            ['B1', 'Time step (DELT), output intervals'],
+                            ['BB2', 'Max iterations, head tolerance, routing method (KINE)'],
+                          ].map(([card, desc]) => (
+                            <tr key={card} className="border-b border-border/50">
+                              <td className="py-1.5 px-3 font-mono text-xs text-primary font-medium">{card}</td>
+                              <td className="py-1.5 px-3 text-xs text-muted-foreground">{desc}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Extending */}
+                  <div>
+                    <h3 className="text-lg font-medium text-foreground mb-3">Extending the Project</h3>
+                    <div className="space-y-3">
+                      <div className="border border-border rounded-lg p-4">
+                        <h4 className="font-semibold text-foreground mb-2 text-sm">Adding a new XP card field</h4>
+                        <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+                          <li>Add entry to <code className="bg-muted px-1 rounded font-mono text-xs">DB</code> in <code className="bg-muted px-1 rounded font-mono text-xs">xp-parser.ts</code></li>
+                          <li>Add property to <code className="bg-muted px-1 rounded font-mono text-xs">XPNode</code> or <code className="bg-muted px-1 rounded font-mono text-xs">XPLink</code> interface</li>
+                          <li>Extract in <code className="bg-muted px-1 rounded font-mono text-xs">parseNativeXP()</code> Phase 5 or 6</li>
+                          <li>Map in <code className="bg-muted px-1 rounded font-mono text-xs">buildINP()</code> to appropriate SWMM5 section</li>
+                        </ol>
+                      </div>
+                      <div className="border border-border rounded-lg p-4">
+                        <h4 className="font-semibold text-foreground mb-2 text-sm">Adding a new SWMM5 section</h4>
+                        <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+                          <li>In <code className="bg-muted px-1 rounded font-mono text-xs">swmm5-builder.ts</code>, filter nodes/links as needed</li>
+                          <li>Append section header and formatted rows to <code className="bg-muted px-1 rounded font-mono text-xs">inp</code> string</li>
+                          <li>Follow SWMM5 column-aligned format convention</li>
+                        </ol>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Known Limitations */}
+                  <div>
+                    <h3 className="text-lg font-medium text-foreground mb-3 flex items-center gap-2">
+                      <AlertCircle className="h-5 w-5 text-warning" />
+                      Known Limitations
+                    </h3>
+                    <div className="overflow-x-auto border rounded-lg">
+                      <table className="w-full text-sm">
+                        <thead><tr className="bg-muted/50 border-b">
+                          <th className="text-left py-2 px-3 font-mono text-xs text-muted-foreground">Area</th>
+                          <th className="text-left py-2 px-3 font-mono text-xs text-muted-foreground">Limitation</th>
+                        </tr></thead>
+                        <tbody>
+                          {[
+                            ['Subcatchments', 'Not parsed (Runoff block not implemented)'],
+                            ['Time series', 'Inflow time series references not converted'],
+                            ['Pump curves', 'Referenced by name but curve data not extracted'],
+                            ['Transects', 'Irregular cross-section station-elevation data not parsed'],
+                            ['Pollutants', 'Water quality parameters not converted'],
+                            ['Controls/Rules', 'Real-time control rules not mapped'],
+                            ['Multi-conduit', 'Only primary conduit exported; dashlinks partial'],
+                            ['GitHub API', '60 req/hr unauthenticated; max 10 subdirs scanned'],
+                          ].map(([area, lim]) => (
+                            <tr key={area} className="border-b border-border/50">
+                              <td className="py-1.5 px-3 font-mono text-xs text-warning font-medium">{area}</td>
+                              <td className="py-1.5 px-3 text-xs text-muted-foreground">{lim}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Deployment */}
+                  <div>
+                    <h3 className="text-lg font-medium text-foreground mb-3">Deployment</h3>
+                    <div className="bg-muted/50 p-4 rounded-lg text-sm text-muted-foreground space-y-2">
+                      <p><strong className="text-foreground">Stack:</strong> React 18 + TypeScript + Vite 5 + Tailwind CSS 3 + shadcn/ui</p>
+                      <p><strong className="text-foreground">Dependencies:</strong> react-router-dom, lucide-react, jszip, recharts</p>
+                      <p><strong className="text-foreground">Build:</strong> <code className="bg-muted px-1 rounded font-mono text-xs">npm run build</code> → static <code className="bg-muted px-1 rounded font-mono text-xs">dist/</code> folder</p>
+                      <p><strong className="text-foreground">No backend required.</strong> All processing happens client-side. No API keys needed.</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-primary/10 border border-primary/20 p-3 rounded">
+                    <p className="text-xs text-foreground">
+                      <strong>Full markdown version:</strong> The complete handover document with code examples, hex-dump references, and extended documentation is available as <code className="bg-muted px-1 rounded font-mono">HANDOVER.md</code> in the project root. This tab provides a rendered summary of the key sections.
+                    </p>
                   </div>
                 </div>
               </Card>
