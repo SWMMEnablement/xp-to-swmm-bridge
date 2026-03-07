@@ -1,4 +1,4 @@
-import { type XPParseResult, type XPTimeSeries, SHAPE_CODES } from './xp-parser';
+import { type XPParseResult, type XPTimeSeries, type XPPumpCurve, SHAPE_CODES } from './xp-parser';
 
 function f(v: number | undefined | null, d = 2): string {
   return v == null || v === 0 ? '0' : typeof v === 'number' ? v.toFixed(d) : String(v);
@@ -107,6 +107,24 @@ SKIP_STEADY_STATE    NO
     pmp.forEach(l => {
       const curve = l.psel ? l.psel.trim() : '*';
       inp += `${pd(l.name, 16)} ${pd(l.usNode || '?', 16)} ${pd(l.dsNode || '?', 16)} ${pd(curve, 10)} ON       ${pd(f(l.pon), 10)} ${pd(f(l.poff), 10)}\n`;
+    });
+    inp += '\n';
+  }
+
+  // Pump Curves
+  const curves = p.pumpCurves || [];
+  if (curves.length) {
+    inp += `[CURVES]\n;;Name           Type       X-Value    Y-Value\n;;-------------- ---------- ---------- ----------\n`;
+    curves.forEach(c => {
+      if (c.points.length > 0) {
+        c.points.forEach((pt, i) => {
+          inp += `${pd(c.name, 16)} ${i === 0 ? pd(c.curveType, 10) : pd('', 10)} ${pd(f(pt.x, 4), 10)} ${pd(f(pt.y, 4), 10)}\n`;
+        });
+      } else {
+        // Empty curve placeholder
+        inp += `${pd(c.name, 16)} ${pd(c.curveType, 10)} 0          0\n`;
+      }
+      inp += `;\n`;
     });
     inp += '\n';
   }
