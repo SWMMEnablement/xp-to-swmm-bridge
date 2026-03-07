@@ -318,6 +318,11 @@ export class XPParser {
   timeSeries: XPTimeSeries[] = [];
   pumpCurves: XPPumpCurve[] = [];
   transects: XPTransect[] = [];
+  pollutants: XPPollutant[] = [];
+  landuses: XPLanduse[] = [];
+  loadings: XPLoading[] = [];
+  buildups: XPBuildup[] = [];
+  washoffs: XPWashoff[] = [];
   jobControl: Record<string, string> = {};
   rawCards: Record<string, { data: string }[]> = {};
   format = 'unknown';
@@ -347,6 +352,8 @@ export class XPParser {
     return {
       nodes: this.nodes, links: this.links, subcatchments: this.subcatchments,
       timeSeries: this.timeSeries, pumpCurves: this.pumpCurves, transects: this.transects,
+      pollutants: this.pollutants, landuses: this.landuses, loadings: this.loadings,
+      buildups: this.buildups, washoffs: this.washoffs,
       jobControl: this.jobControl, rawCards: this.rawCards,
       format: this.format, title: this.title, warnings: this.warnings
     };
