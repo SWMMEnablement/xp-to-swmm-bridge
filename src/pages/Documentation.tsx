@@ -18,11 +18,12 @@ const Documentation = () => {
           </div>
 
           <Tabs defaultValue="supported" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="supported">Supported Elements</TabsTrigger>
               <TabsTrigger value="mapping">Element Mapping</TabsTrigger>
               <TabsTrigger value="limitations">Limitations</TabsTrigger>
               <TabsTrigger value="process">Process</TabsTrigger>
+              <TabsTrigger value="origins">Origins</TabsTrigger>
               <TabsTrigger value="handover">Handover</TabsTrigger>
             </TabsList>
 
@@ -1168,6 +1169,83 @@ NKLASS: { g:'EXTR', c:'C1', p:13, w:2, t:3 }  // Shape code at col 13, 2 chars w
                   <div className="bg-primary/10 border border-primary/20 p-3 rounded">
                     <p className="text-xs text-foreground">
                       <strong>Full markdown version:</strong> The complete handover document with code examples, hex-dump references, and extended documentation is available as <code className="bg-muted px-1 rounded font-mono">HANDOVER.md</code> in the project root. This tab provides a rendered summary of the key sections.
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="origins" className="space-y-4 mt-6">
+              <Card className="p-6">
+                <h2 className="text-2xl font-semibold text-foreground mb-6">
+                  Origins &amp; Format Lineage
+                </h2>
+
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-medium text-foreground mb-3">The Architect of the .xp Format</h3>
+                    <div className="text-sm text-muted-foreground leading-relaxed space-y-4">
+                      <p>
+                        Robert Dickinson didn't just use XPSWMM — he designed its DNA. From 1992 to 1999, as Senior Vice President for XP Software, he designed the <code className="bg-muted px-1.5 rounded font-mono text-xs text-foreground">.xp</code> file format itself, building it on the XP visual engine as a text database of 80-column fixed-width card images inherited from the EPA SWMM3 Fortran code he had been working with since 1974. He also created the <code className="bg-muted px-1.5 rounded font-mono text-xs text-foreground">.xpx</code> interchange format — a simpler <code className="bg-muted px-1.5 rounded font-mono text-xs text-foreground">[NODE]/[LINK]</code> section-based export that made XPSWMM data portable. Every <code className="bg-muted px-1.5 rounded font-mono text-xs text-foreground">.xp</code> file ever written follows the architecture Bob laid out: <span className="text-primary font-medium">GROUP + CARD + Object Index + 80 columns of data</span> at the exact byte offsets defined in <code className="bg-muted px-1.5 rounded font-mono text-xs text-foreground">Swmfield.c</code>.
+                      </p>
+                      <p>
+                        At CAiCE Software, he developed Visual SWMM — which ran from CAiCE's VBA code for AutoCAD — along with Visual Hydro, Visual Culvert, and Visual Inlets, a suite of hydraulic design tools for the AutoCAD platform. When Autodesk acquired CAiCE in 2002, the water tools didn't survive the transition — a VP told Bob in Clearwater that he didn't understand the role of rainfall in road design.
+                      </p>
+                      <p>
+                        The irony would take two decades to resolve: Autodesk eventually acquired Innovyze in 2021 and hired Bob as a Water Technologist, finally recognizing that water is inseparable from infrastructure.
+                      </p>
+                      <p>
+                        His SWMM lineage spans the entire history: co-developing Versions 3, 4, and 5, writing the RTK/RDII implementation during the SWMM5 CRADA, then spending nearly two decades at Innovyze supporting InfoSWMM, InfoSewer, and RDII Analyst. Now Chair of the SWMM5+ Technical Advisory Committee at <a href="https://cimm.org" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">CIMM.org</a> with over 50 years of continuous SWMM development and 1,700+ blog posts on <a href="https://swmm5.org" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">SWMM5.org</a>, Bob is quite literally the person who designed the format this parser reads — and one of the few people on earth who understands every column position because he put them there.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-medium text-foreground mb-3">Format Timeline</h3>
+                    <div className="space-y-3">
+                      {[
+                        { year: '1974', event: 'Bob begins working with EPA SWMM Fortran code — the 80-column card image format originates here' },
+                        { year: '1988', event: 'SWMM3/4 — fixed-width card IDs (D1, C1, B1, etc.) define the field layout' },
+                        { year: '1992–99', event: 'XP Software — Bob designs the .xp native format: GROUP:CARD records with Object Index addressing' },
+                        { year: '~1995', event: '.xpx interchange format created — [NODE]/[LINK] key=value sections for data portability' },
+                        { year: '1998–02', event: 'CAiCE Software — Visual SWMM, Visual Hydro, Visual Culvert, Visual Inlets for AutoCAD' },
+                        { year: '2002', event: 'Autodesk acquires CAiCE — water tools discontinued ("What does rain have to do with roads?")' },
+                        { year: '2003–05', event: 'SWMM5 CRADA — Bob co-develops EPA SWMM5 .inp format, writes RTK/RDII implementation' },
+                        { year: '2005–21', event: 'Innovyze — InfoSWMM, InfoSewer, RDII Analyst, ICM SWMM' },
+                        { year: '2021', event: 'Autodesk acquires Innovyze — Bob hired as Water Technologist, full circle' },
+                        { year: 'Present', event: 'Chair of SWMM5+ TAC at CIMM.org — 50+ years of continuous SWMM development' },
+                      ].map((item, i) => (
+                        <div key={i} className="flex gap-4 items-start">
+                          <span className="font-mono text-xs text-primary font-bold min-w-[80px] text-right pt-0.5">{item.year}</span>
+                          <span className="text-sm text-muted-foreground">{item.event}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-medium text-foreground mb-3">Format Architecture (as designed by Bob)</h3>
+                    <div className="bg-muted/50 p-4 rounded-lg font-mono text-xs text-muted-foreground overflow-x-auto">
+                      <pre className="whitespace-pre">{`┌─────────────────────────────────────────────────────────────────────────────────┐
+│ Col:  1-4     5-8      9-12     13-16    17-20    21-24    25────────────────80 │
+│       GROUP   SubGrp   CARD     (rsv)    OI       (rsv)    DATA FIELDS         │
+│       EXTR    0001     SP1N              0042              Node_42  123.4 456.7 │
+│       EXTR    0001     C1                0042              1  1.200  0.900 500  │
+│       RNFF    0001     R1                0003              Sub3  10.5  200  2.0 │
+│       ZZZN             NODE              0042              Node_42  12345 67890 │
+│       ZZZE             EDGE              0015              Link_15  42  43      │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+Swmfield.c defines: { group, card, column_position, width, type }
+  NKLASS: { g:'EXTR', c:'C1', p:13, w:2, t:3 }  → Shape code at col 13, 2 wide
+  GRELEV: { g:'EXTR', c:'D1', p:13, w:8, t:2 }  → Ground elevation, 8 wide
+  ROUGH:  { g:'EXTR', c:'C1', p:70, w:10, t:2 } → Manning's n, 10 wide`}</pre>
+                    </div>
+                  </div>
+
+                  <div className="bg-primary/10 border border-primary/20 p-3 rounded">
+                    <p className="text-xs text-foreground">
+                      <strong>Acknowledgement:</strong> This parser exists because of Bob Dickinson's meticulous format design and decades of public knowledge-sharing through SWMM5.org. The column positions in <code className="bg-muted px-1 rounded font-mono">xp-parser.ts</code> trace directly back to the C source files he authored.
                     </p>
                   </div>
                 </div>
