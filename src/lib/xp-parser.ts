@@ -555,6 +555,81 @@ export class XPParser {
       };
       this.subcatchments.push(sc);
     }
+
+    // Phase 10: Time Series from D2/D3 cards (inflow hydrographs)
+    const nodeNameMap: Record<number, string> = {};
+    this.nodes.forEach(n => { nodeNameMap[n.idx] = n.name; });
+
+    const d2OIs = ois('EXTR:D2');
+    for (const oi of d2OIs.sort((a, b) => a - b)) {
+      const nodeName = nodeNameMap[oi] || `Node_${oi}`;
+      const tsName = `TS_${nodeName}`;
+
+      // Get D2 header data
+      const d2Header = gd('EXTR:D2', oi, 0);
+      const inflType = this.toI(this.xf(d2Header, DB.INFLTYP));
+      const nPairs = this.toI(this.xf(d2Header, DB.NPAIRS));
+      const tsFact = this.toF(this.xf(d2Header, DB.TSFACT)) || 1;
+      const qFact = this.toF(this.xf(d2Header, DB.QFACT)) || 1;
+
+      // Collect all D2 records for this OI (time-value pairs stored across multiple records)
+      const points: XPTimeSeriesPoint[] = [];
+      const d2Subs = rec['EXTR:D2']?.[oi];
+      if (d2Subs) {
+        for (const [, records] of Object.entries(d2Subs)) {
+          for (const data of records) {
+            // Parse pairs from the data field - values are space-separated
+            const vals = data.trim().split(/\s+/).map(Number).filter(v => !isNaN(v));
+            // Skip header record (first record has type/npairs/factors)
+            if (vals.length >= 2) {
+              for (let i = 0; i < vals.length - 1; i += 2) {
+                const t = vals[i] * (tsFact > 0 ? tsFact : 1);
+                const v = vals[i + 1] * (qFact > 0 ? qFact : 1);
+                if (t >= 0) points.push({ time: t, value: v });
+              }
+            }
+          }
+        }
+      }
+
+      // Also check D3 cards for additional data points
+      const d3Subs = rec['EXTR:D3']?.[oi];
+      if (d3Subs) {
+        for (const [, records] of Object.entries(d3Subs)) {
+          for (const data of records) {
+            const vals = data.trim().split(/\s+/).map(Number).filter(v => !isNaN(v));
+            if (vals.length >= 2) {
+              for (let i = 0; i < vals.length - 1; i += 2) {
+                const t = vals[i] * (tsFact > 0 ? tsFact : 1);
+                const v = vals[i + 1] * (qFact > 0 ? qFact : 1);
+                if (t >= 0) points.push({ time: t, value: v });
+              }
+            }
+          }
+        }
+      }
+
+      // Sort by time and remove duplicates
+      points.sort((a, b) => a.time - b.time);
+      const uniquePoints = points.filter((p, i) => i === 0 || p.time !== points[i - 1].time);
+
+      if (uniquePoints.length > 0) {
+        this.timeSeries.push({
+          name: tsName,
+          nodeIdx: oi,
+          type: inflType === 2 ? 'STAGE' : 'FLOW',
+          points: uniquePoints,
+          timeFactor: tsFact,
+          valueFactor: qFact,
+        });
+
+        // Update the associated node to reference this time series
+        const node = this.nodes.find(n => n.idx === oi);
+        if (node) {
+          node.inflowTS = tsName;
+        }
+      }
+    }
   }
 
   private parseSWMM34(lines: string[]) {
