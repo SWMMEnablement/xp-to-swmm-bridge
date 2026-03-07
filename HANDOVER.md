@@ -476,9 +476,38 @@ No environment variables or API keys needed. The GitHub batch feature uses the p
 
 ---
 
+## 14. Origins & Format Lineage
+
+### The Architect of the .xp Format
+
+Robert Dickinson didn't just use XPSWMM — he designed its DNA. From 1992 to 1999, as Senior Vice President for XP Software, he designed the `.xp` file format itself, building it on the XP visual engine as a text database of 80-column fixed-width card images inherited from the EPA SWMM3 Fortran code he had been working with since 1974. He also created the `.xpx` interchange format — a simpler `[NODE]/[LINK]` section-based export that made XPSWMM data portable. Every `.xp` file ever written follows the architecture Bob laid out: GROUP + CARD + Object Index + 80 columns of data at the exact byte offsets defined in `Swmfield.c`.
+
+At CAiCE Software, he developed Visual SWMM — which ran from CAiCE's VBA code for AutoCAD — along with Visual Hydro, Visual Culvert, and Visual Inlets, a suite of hydraulic design tools for the AutoCAD platform. When Autodesk acquired CAiCE in 2002, the water tools didn't survive the transition — a VP told Bob in Clearwater that he didn't understand the role of rainfall in road design.
+
+The irony would take two decades to resolve: Autodesk eventually acquired Innovyze in 2021 and hired Bob as a Water Technologist, finally recognizing that water is inseparable from infrastructure.
+
+His SWMM lineage spans the entire history: co-developing Versions 3, 4, and 5, writing the RTK/RDII implementation during the SWMM5 CRADA, then spending nearly two decades at Innovyze supporting InfoSWMM, InfoSewer, and RDII Analyst. Now Chair of the SWMM5+ Technical Advisory Committee at [CIMM.org](https://cimm.org) with over 50 years of continuous SWMM development and 1,700+ blog posts on [SWMM5.org](https://swmm5.org), Bob is quite literally the person who designed the format this parser reads — and one of the few people on earth who understands every column position because he put them there.
+
+### Format Timeline
+
+| Year | Milestone |
+|---|---|
+| **1974** | Bob begins working with EPA SWMM Fortran code — the 80-column card image format originates here |
+| **1988** | SWMM3/4 — fixed-width card IDs (D1, C1, B1, etc.) define the field layout |
+| **1992–99** | XP Software — Bob designs the `.xp` native format: GROUP:CARD records with Object Index addressing |
+| **~1995** | `.xpx` interchange format created — `[NODE]/[LINK]` key=value sections for data portability |
+| **1998–02** | CAiCE Software — Visual SWMM, Visual Hydro, Visual Culvert, Visual Inlets for AutoCAD |
+| **2002** | Autodesk acquires CAiCE — water tools discontinued |
+| **2003–05** | SWMM5 CRADA — Bob co-develops EPA SWMM5 `.inp` format, writes RTK/RDII implementation |
+| **2005–21** | Innovyze — InfoSWMM, InfoSewer, RDII Analyst, ICM SWMM |
+| **2021** | Autodesk acquires Innovyze — Bob hired as Water Technologist, full circle |
+| **Present** | Chair of SWMM5+ TAC at CIMM.org — 50+ years of continuous SWMM development |
+
+---
+
 ## License & Credits
 
 - **SWMM5 format:** EPA Storm Water Management Model specification
-- **XP format:** CAiCE database engine format used by XPSWMM
+- **XP format:** CAiCE database engine format designed by Robert Dickinson at XP Software
 - **Original C source reference:** `Swmfield.c`, `Swmfield.h`, `Exporun.c`, `Edovl.c`, `Export.c`
 - **Built with:** [Lovable](https://lovable.dev)
