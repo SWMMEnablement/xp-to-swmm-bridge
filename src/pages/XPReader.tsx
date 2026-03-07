@@ -153,6 +153,9 @@ const XPReader = () => {
                     {result.pollutants.length > 0 && (
                       <Badge className="bg-destructive/10 text-destructive border-destructive/20">{result.pollutants.length} pollutants</Badge>
                     )}
+                    {result.controlRules.length > 0 && (
+                      <Badge className="bg-warning/10 text-warning border-warning/20">{result.controlRules.length} controls</Badge>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -176,6 +179,9 @@ const XPReader = () => {
                   )}
                   {result.pollutants.length > 0 && (
                     <TabsTrigger value="pollutants" className="font-mono text-xs">Pollutants <Badge variant="secondary" className="ml-1 text-xs">{result.pollutants.length}</Badge></TabsTrigger>
+                  )}
+                  {result.controlRules.length > 0 && (
+                    <TabsTrigger value="controls" className="font-mono text-xs">Controls <Badge variant="secondary" className="ml-1 text-xs">{result.controlRules.length}</Badge></TabsTrigger>
                   )}
                   <TabsTrigger value="jobctrl" className="font-mono text-xs">Job Control</TabsTrigger>
                   <TabsTrigger value="map" className="font-mono text-xs">Network Map</TabsTrigger>
