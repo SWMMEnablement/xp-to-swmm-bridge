@@ -172,6 +172,7 @@ const XPReader = () => {
                       { label: 'Nodes', value: result.nodes.length, color: 'text-primary' },
                       { label: 'Links', value: result.links.length, color: 'text-success' },
                       { label: 'Subcatchments', value: result.subcatchments.length, color: 'text-accent-foreground' },
+                      { label: 'Time Series', value: result.timeSeries.length, color: 'text-warning' },
                       { label: 'Junctions', value: stats?.nt.Junction || 0, color: 'text-primary' },
                       { label: 'Outfalls', value: stats?.nt.Outfall || 0, color: 'text-warning' },
                       { label: 'Storage', value: stats?.nt.Storage || 0, color: 'text-primary' },
