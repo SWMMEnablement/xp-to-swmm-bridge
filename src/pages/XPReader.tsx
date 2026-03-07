@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { XPParser, type XPParseResult, type XPNode, type XPLink, type XPSubcatchment, DB, SHAPE_CODES, ROUTING_CODES } from "@/lib/xp-parser";
+import { XPParser, type XPParseResult, type XPNode, type XPLink, type XPSubcatchment, type XPTimeSeries, DB, SHAPE_CODES, ROUTING_CODES } from "@/lib/xp-parser";
 import { buildINP, buildCSV } from "@/lib/swmm5-builder";
 import { Upload, FileDown, Map, Table, Settings, FileText, Search } from "lucide-react";
 
@@ -141,6 +141,9 @@ const XPReader = () => {
                     {result.subcatchments.length > 0 && (
                       <Badge className="bg-accent/10 text-accent-foreground border-accent/20">{result.subcatchments.length} subcatchments</Badge>
                     )}
+                    {result.timeSeries.length > 0 && (
+                      <Badge className="bg-warning/10 text-warning border-warning/20">{result.timeSeries.length} time series</Badge>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -152,6 +155,9 @@ const XPReader = () => {
                   <TabsTrigger value="links" className="font-mono text-xs">Links <Badge variant="secondary" className="ml-1 text-xs">{result.links.length}</Badge></TabsTrigger>
                   {result.subcatchments.length > 0 && (
                     <TabsTrigger value="subcatchments" className="font-mono text-xs">Subcatchments <Badge variant="secondary" className="ml-1 text-xs">{result.subcatchments.length}</Badge></TabsTrigger>
+                  )}
+                  {result.timeSeries.length > 0 && (
+                    <TabsTrigger value="timeseries" className="font-mono text-xs">Time Series <Badge variant="secondary" className="ml-1 text-xs">{result.timeSeries.length}</Badge></TabsTrigger>
                   )}
                   <TabsTrigger value="jobctrl" className="font-mono text-xs">Job Control</TabsTrigger>
                   <TabsTrigger value="map" className="font-mono text-xs">Network Map</TabsTrigger>
@@ -166,6 +172,7 @@ const XPReader = () => {
                       { label: 'Nodes', value: result.nodes.length, color: 'text-primary' },
                       { label: 'Links', value: result.links.length, color: 'text-success' },
                       { label: 'Subcatchments', value: result.subcatchments.length, color: 'text-accent-foreground' },
+                      { label: 'Time Series', value: result.timeSeries.length, color: 'text-warning' },
                       { label: 'Junctions', value: stats?.nt.Junction || 0, color: 'text-primary' },
                       { label: 'Outfalls', value: stats?.nt.Outfall || 0, color: 'text-warning' },
                       { label: 'Storage', value: stats?.nt.Storage || 0, color: 'text-primary' },
@@ -316,6 +323,78 @@ const XPReader = () => {
                   </TabsContent>
                 )}
 
+                {/* Time Series */}
+                {result.timeSeries.length > 0 && (
+                  <TabsContent value="timeseries">
+                    <div className="space-y-4">
+                      {result.timeSeries.map((ts, i) => {
+                        const nodeMatch = result.nodes.find(n => n.idx === ts.nodeIdx);
+                        const maxVal = Math.max(...ts.points.map(p => p.value));
+                        const maxTime = ts.points.length > 0 ? ts.points[ts.points.length - 1].time : 0;
+                        return (
+                          <Card key={i}>
+                            <CardHeader className="py-3">
+                              <div className="flex items-center gap-3 flex-wrap">
+                                <CardTitle className="text-sm font-mono">{ts.name}</CardTitle>
+                                <Badge variant="outline" className="font-mono text-xs">{ts.type}</Badge>
+                                <span className="text-xs text-muted-foreground font-mono">
+                                  Node: {nodeMatch?.name || `OI_${ts.nodeIdx}`} • {ts.points.length} points • Peak: {f(maxVal, 2)} • Duration: {f(maxTime, 1)} hrs
+                                </span>
+                              </div>
+                            </CardHeader>
+                            <CardContent className="py-2">
+                              {/* Simple ASCII sparkline bar chart */}
+                              <div className="border rounded-lg overflow-hidden mb-3">
+                                <svg viewBox={`0 0 600 120`} className="w-full" style={{ height: 120 }}>
+                                  <rect width={600} height={120} fill="hsl(var(--card))" />
+                                  {ts.points.map((pt, j) => {
+                                    const x = maxTime > 0 ? (pt.time / maxTime) * 580 + 10 : j * 5 + 10;
+                                    const h = maxVal > 0 ? (pt.value / maxVal) * 90 : 0;
+                                    const barW = Math.max(2, 560 / ts.points.length - 1);
+                                    return (
+                                      <rect key={j} x={x} y={110 - h} width={barW} height={h}
+                                        fill="hsl(var(--primary))" opacity={0.7}>
+                                        <title>t={f(pt.time, 2)}h, v={f(pt.value, 3)}</title>
+                                      </rect>
+                                    );
+                                  })}
+                                  <line x1={10} y1={110} x2={590} y2={110} stroke="hsl(var(--border))" strokeWidth={1} />
+                                  <text x={10} y={10} fill="hsl(var(--muted-foreground))" fontSize={9} fontFamily="monospace">Peak: {f(maxVal, 2)}</text>
+                                  <text x={540} y={10} fill="hsl(var(--muted-foreground))" fontSize={9} fontFamily="monospace" textAnchor="end">{f(maxTime, 1)}h</text>
+                                </svg>
+                              </div>
+                              {/* Data table (first 20 points) */}
+                              <div className="overflow-x-auto border rounded-lg max-h-48">
+                                <table className="w-full text-xs">
+                                  <thead>
+                                    <tr className="bg-muted/50 border-b">
+                                      <th className="px-3 py-1 text-left font-mono text-muted-foreground">#</th>
+                                      <th className="px-3 py-1 text-right font-mono text-muted-foreground">Time (hrs)</th>
+                                      <th className="px-3 py-1 text-right font-mono text-muted-foreground">Value</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {ts.points.slice(0, 20).map((pt, j) => (
+                                      <tr key={j} className="border-b border-border/50 hover:bg-muted/30">
+                                        <td className="px-3 py-0.5 font-mono text-muted-foreground">{j + 1}</td>
+                                        <td className="px-3 py-0.5 font-mono text-right">{f(pt.time, 4)}</td>
+                                        <td className="px-3 py-0.5 font-mono text-right text-primary">{f(pt.value, 4)}</td>
+                                      </tr>
+                                    ))}
+                                    {ts.points.length > 20 && (
+                                      <tr><td colSpan={3} className="px-3 py-1 font-mono text-xs text-muted-foreground text-center">... +{ts.points.length - 20} more points</td></tr>
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </TabsContent>
+                )}
+
                 {/* Job Control */}
                 <TabsContent value="jobctrl">
                   {Object.keys(result.jobControl).length === 0 ? (
@@ -384,7 +463,7 @@ const XPReader = () => {
                             <FileDown className="h-4 w-4 mr-2" /> Subcatchments CSV
                           </Button>
                         )}
-                        <Button variant="outline" onClick={() => download(JSON.stringify({ format: result.format, title: result.title, nodes: result.nodes, links: result.links, subcatchments: result.subcatchments, jobControl: result.jobControl }, null, 2), 'xpswmm_data.json', 'application/json')}>
+                        <Button variant="outline" onClick={() => download(JSON.stringify({ format: result.format, title: result.title, nodes: result.nodes, links: result.links, subcatchments: result.subcatchments, timeSeries: result.timeSeries, jobControl: result.jobControl }, null, 2), 'xpswmm_data.json', 'application/json')}>
                           Full JSON
                         </Button>
                         <Button variant="outline" onClick={() => download(buildINP(result), 'xpswmm_converted.inp', 'text/plain')}>

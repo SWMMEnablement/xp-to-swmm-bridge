@@ -103,6 +103,11 @@ export const DB: Record<string, FieldDef> = {
   SIMD:{g:'RNFF',c:'R4',p:31,w:10,t:2},     // Initial moisture deficit
   SRGNAME:{g:'RNFF',c:'R5',p:1,w:10,t:5},   // Rain gage name
   SSNOW:{g:'RNFF',c:'R5',p:11,w:1,t:4},     // Snow flag
+  // Inflow time series fields (D2 card)
+  INFLTYP:{g:'EXTR',c:'D2',p:4,w:1,t:3},    // Inflow type: 1=flow, 2=stage
+  NPAIRS:{g:'EXTR',c:'D2',p:6,w:4,t:1},     // Number of time-value pairs
+  TSFACT:{g:'EXTR',c:'D2',p:11,w:10,t:2},   // Time scale factor (to seconds)
+  QFACT:{g:'EXTR',c:'D2',p:21,w:10,t:2},    // Flow scale factor
 };
 
 export interface XPNode {
@@ -190,10 +195,25 @@ export interface XPSubcatchment {
   [key: string]: unknown;
 }
 
+export interface XPTimeSeriesPoint {
+  time: number;   // Time in hours
+  value: number;  // Flow or stage value
+}
+
+export interface XPTimeSeries {
+  name: string;        // Usually matches the node name
+  nodeIdx: number;     // OI of the associated node
+  type: string;        // 'FLOW' or 'STAGE'
+  points: XPTimeSeriesPoint[];
+  timeFactor: number;  // Multiplier to convert stored time to hours
+  valueFactor: number; // Multiplier for flow/stage values
+}
+
 export interface XPParseResult {
   nodes: XPNode[];
   links: XPLink[];
   subcatchments: XPSubcatchment[];
+  timeSeries: XPTimeSeries[];
   jobControl: Record<string, string>;
   rawCards: Record<string, { data: string }[]>;
   format: string;
@@ -207,6 +227,7 @@ export class XPParser {
   nodes: XPNode[] = [];
   links: XPLink[] = [];
   subcatchments: XPSubcatchment[] = [];
+  timeSeries: XPTimeSeries[] = [];
   jobControl: Record<string, string> = {};
   rawCards: Record<string, { data: string }[]> = {};
   format = 'unknown';
@@ -214,7 +235,6 @@ export class XPParser {
   warnings: string[] = [];
 
   parse(text: string): XPParseResult {
-    // Strip RTF wrapper
     if (text.trimStart().startsWith('{\\rtf')) {
       text = text
         .replace(/^\{\\rtf[^}]*\{[^}]*\}\{[^}]*\}\r?\n?/, '')
@@ -236,7 +256,7 @@ export class XPParser {
   getResult(): XPParseResult {
     return {
       nodes: this.nodes, links: this.links, subcatchments: this.subcatchments,
-      jobControl: this.jobControl, rawCards: this.rawCards,
+      timeSeries: this.timeSeries, jobControl: this.jobControl, rawCards: this.rawCards,
       format: this.format, title: this.title, warnings: this.warnings
     };
   }
@@ -534,6 +554,81 @@ export class XPParser {
         rainGage: this.xf(r5, DB.SRGNAME).trim() || '*',
       };
       this.subcatchments.push(sc);
+    }
+
+    // Phase 10: Time Series from D2/D3 cards (inflow hydrographs)
+    const nodeNameMap: Record<number, string> = {};
+    this.nodes.forEach(n => { nodeNameMap[n.idx] = n.name; });
+
+    const d2OIs = ois('EXTR:D2');
+    for (const oi of d2OIs.sort((a, b) => a - b)) {
+      const nodeName = nodeNameMap[oi] || `Node_${oi}`;
+      const tsName = `TS_${nodeName}`;
+
+      // Get D2 header data
+      const d2Header = gd('EXTR:D2', oi, 0);
+      const inflType = this.toI(this.xf(d2Header, DB.INFLTYP));
+      const nPairs = this.toI(this.xf(d2Header, DB.NPAIRS));
+      const tsFact = this.toF(this.xf(d2Header, DB.TSFACT)) || 1;
+      const qFact = this.toF(this.xf(d2Header, DB.QFACT)) || 1;
+
+      // Collect all D2 records for this OI (time-value pairs stored across multiple records)
+      const points: XPTimeSeriesPoint[] = [];
+      const d2Subs = rec['EXTR:D2']?.[oi];
+      if (d2Subs) {
+        for (const [, records] of Object.entries(d2Subs)) {
+          for (const data of records) {
+            // Parse pairs from the data field - values are space-separated
+            const vals = data.trim().split(/\s+/).map(Number).filter(v => !isNaN(v));
+            // Skip header record (first record has type/npairs/factors)
+            if (vals.length >= 2) {
+              for (let i = 0; i < vals.length - 1; i += 2) {
+                const t = vals[i] * (tsFact > 0 ? tsFact : 1);
+                const v = vals[i + 1] * (qFact > 0 ? qFact : 1);
+                if (t >= 0) points.push({ time: t, value: v });
+              }
+            }
+          }
+        }
+      }
+
+      // Also check D3 cards for additional data points
+      const d3Subs = rec['EXTR:D3']?.[oi];
+      if (d3Subs) {
+        for (const [, records] of Object.entries(d3Subs)) {
+          for (const data of records) {
+            const vals = data.trim().split(/\s+/).map(Number).filter(v => !isNaN(v));
+            if (vals.length >= 2) {
+              for (let i = 0; i < vals.length - 1; i += 2) {
+                const t = vals[i] * (tsFact > 0 ? tsFact : 1);
+                const v = vals[i + 1] * (qFact > 0 ? qFact : 1);
+                if (t >= 0) points.push({ time: t, value: v });
+              }
+            }
+          }
+        }
+      }
+
+      // Sort by time and remove duplicates
+      points.sort((a, b) => a.time - b.time);
+      const uniquePoints = points.filter((p, i) => i === 0 || p.time !== points[i - 1].time);
+
+      if (uniquePoints.length > 0) {
+        this.timeSeries.push({
+          name: tsName,
+          nodeIdx: oi,
+          type: inflType === 2 ? 'STAGE' : 'FLOW',
+          points: uniquePoints,
+          timeFactor: tsFact,
+          valueFactor: qFact,
+        });
+
+        // Update the associated node to reference this time series
+        const node = this.nodes.find(n => n.idx === oi);
+        if (node) {
+          node.inflowTS = tsName;
+        }
+      }
     }
   }
 
