@@ -213,11 +213,26 @@ export interface XPTimeSeries {
   valueFactor: number; // Multiplier for flow/stage values
 }
 
+export interface XPPumpCurvePoint {
+  x: number;  // Volume, Depth, or Head depending on pump type
+  y: number;  // Flow rate
+}
+
+export interface XPPumpCurve {
+  name: string;         // Curve name (from PSEL or generated)
+  linkIdx: number;      // OI of the associated pump link
+  pumpType: number;     // IPTYP: 1=vol, 2=depth, 3=head, 4=depth-flow
+  pumpTypeName: string; // Human-readable pump type
+  curveType: string;    // SWMM5 curve type: Pump1, Pump2, Pump3, Pump4
+  points: XPPumpCurvePoint[];
+}
+
 export interface XPParseResult {
   nodes: XPNode[];
   links: XPLink[];
   subcatchments: XPSubcatchment[];
   timeSeries: XPTimeSeries[];
+  pumpCurves: XPPumpCurve[];
   jobControl: Record<string, string>;
   rawCards: Record<string, { data: string }[]>;
   format: string;
