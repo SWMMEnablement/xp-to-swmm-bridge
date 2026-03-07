@@ -103,6 +103,11 @@ export const DB: Record<string, FieldDef> = {
   SIMD:{g:'RNFF',c:'R4',p:31,w:10,t:2},     // Initial moisture deficit
   SRGNAME:{g:'RNFF',c:'R5',p:1,w:10,t:5},   // Rain gage name
   SSNOW:{g:'RNFF',c:'R5',p:11,w:1,t:4},     // Snow flag
+  // Inflow time series fields (D2 card)
+  INFLTYP:{g:'EXTR',c:'D2',p:4,w:1,t:3},    // Inflow type: 1=flow, 2=stage
+  NPAIRS:{g:'EXTR',c:'D2',p:6,w:4,t:1},     // Number of time-value pairs
+  TSFACT:{g:'EXTR',c:'D2',p:11,w:10,t:2},   // Time scale factor (to seconds)
+  QFACT:{g:'EXTR',c:'D2',p:21,w:10,t:2},    // Flow scale factor
 };
 
 export interface XPNode {
@@ -190,10 +195,25 @@ export interface XPSubcatchment {
   [key: string]: unknown;
 }
 
+export interface XPTimeSeriesPoint {
+  time: number;   // Time in hours
+  value: number;  // Flow or stage value
+}
+
+export interface XPTimeSeries {
+  name: string;        // Usually matches the node name
+  nodeIdx: number;     // OI of the associated node
+  type: string;        // 'FLOW' or 'STAGE'
+  points: XPTimeSeriesPoint[];
+  timeFactor: number;  // Multiplier to convert stored time to hours
+  valueFactor: number; // Multiplier for flow/stage values
+}
+
 export interface XPParseResult {
   nodes: XPNode[];
   links: XPLink[];
   subcatchments: XPSubcatchment[];
+  timeSeries: XPTimeSeries[];
   jobControl: Record<string, string>;
   rawCards: Record<string, { data: string }[]>;
   format: string;
