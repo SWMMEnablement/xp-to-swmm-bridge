@@ -44,6 +44,12 @@ export const Header = () => {
               Card Reader
             </Link>
             <Link 
+              to="/github-batch" 
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              GitHub Batch
+            </Link>
+            <Link 
               to="/docs" 
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
