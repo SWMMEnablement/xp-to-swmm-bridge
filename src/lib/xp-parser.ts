@@ -227,6 +227,7 @@ export class XPParser {
   nodes: XPNode[] = [];
   links: XPLink[] = [];
   subcatchments: XPSubcatchment[] = [];
+  timeSeries: XPTimeSeries[] = [];
   jobControl: Record<string, string> = {};
   rawCards: Record<string, { data: string }[]> = {};
   format = 'unknown';
@@ -234,7 +235,6 @@ export class XPParser {
   warnings: string[] = [];
 
   parse(text: string): XPParseResult {
-    // Strip RTF wrapper
     if (text.trimStart().startsWith('{\\rtf')) {
       text = text
         .replace(/^\{\\rtf[^}]*\{[^}]*\}\{[^}]*\}\r?\n?/, '')
@@ -256,7 +256,7 @@ export class XPParser {
   getResult(): XPParseResult {
     return {
       nodes: this.nodes, links: this.links, subcatchments: this.subcatchments,
-      jobControl: this.jobControl, rawCards: this.rawCards,
+      timeSeries: this.timeSeries, jobControl: this.jobControl, rawCards: this.rawCards,
       format: this.format, title: this.title, warnings: this.warnings
     };
   }
