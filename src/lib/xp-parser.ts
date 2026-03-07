@@ -67,6 +67,10 @@ export const DB: Record<string, FieldDef> = {
   COEFF:{g:'EXTR',c:'G1',p:53,w:4,t:2},
   IPTYP:{g:'EXTR',c:'H1A',p:1,w:2,t:3}, PON:{g:'EXTR',c:'H1A',p:11,w:8,t:2},
   POFF:{g:'EXTR',c:'H1A',p:19,w:8,t:2}, PSEL:{g:'EXTR',c:'H1A',p:51,w:20,t:5},
+  // Pump curve data (H2 cards) — number of curve points
+  PCNPTS:{g:'EXTR',c:'H2',p:1,w:4,t:1},     // Number of curve data pairs
+  PCINITF:{g:'EXTR',c:'H2',p:5,w:8,t:2},     // Initial flow
+  PCMAXF:{g:'EXTR',c:'H2',p:13,w:8,t:2},     // Max flow (shutoff head for Type3)
   ALPHA:{g:'EXTR',c:'A1',p:5,w:75,t:5}, ALPHB:{g:'EXTR',c:'A1B',p:5,w:75,t:5},
   CNTLJD:{g:'EXTR',c:'B0',p:64,w:1,t:4}, CNTLMC:{g:'EXTR',c:'B0',p:66,w:1,t:4},
   CNTLR:{g:'EXTR',c:'B0',p:70,w:1,t:4}, CNTLT:{g:'EXTR',c:'B0',p:68,w:1,t:4},
