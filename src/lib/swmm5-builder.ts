@@ -1,4 +1,4 @@
-import { type XPParseResult, type XPTimeSeries, type XPPumpCurve, type XPTransect, SHAPE_CODES } from './xp-parser';
+import { type XPParseResult, type XPTimeSeries, type XPPumpCurve, type XPTransect, type XPPollutant, type XPLanduse, type XPBuildup, type XPWashoff, type XPLoading, SHAPE_CODES } from './xp-parser';
 
 function f(v: number | undefined | null, d = 2): string {
   return v == null || v === 0 ? '0' : typeof v === 'number' ? v.toFixed(d) : String(v);
@@ -266,6 +266,56 @@ SKIP_STEADY_STATE    NO
         // Curve Number
         inp += `${pd(s.name, 16)} ${pd(f(s.curveNum), 10)} ${pd(f(s.conduc), 10)} ${pd(f(s.fDry), 10)} 0          0\n`;
       }
+    });
+    inp += '\n';
+  }
+
+  // Pollutants
+  const polls = p.pollutants || [];
+  if (polls.length) {
+    inp += `[POLLUTANTS]\n;;Name           Units  Crain      Cgw        Crdii      Kdecay     SnowOnly   CoPollutant    CoFrac\n;;-------------- ------ ---------- ---------- ---------- ---------- ---------- -------------- ----------\n`;
+    polls.forEach(pol => {
+      inp += `${pd(pol.name, 16)} ${pd(pol.units, 6)} ${pd(f(pol.cRain), 10)} ${pd(f(pol.cGW), 10)} ${pd(f(pol.cRDII), 10)} ${pd(f(pol.decayCoeff, 4), 10)} ${pd(pol.snowOnly ? 'YES' : 'NO', 10)} ${pd(pol.coPollutant || '*', 14)} ${pd(f(pol.coFraction), 10)}\n`;
+    });
+    inp += '\n';
+  }
+
+  // Land Uses
+  const lus = p.landuses || [];
+  if (lus.length) {
+    inp += `[LANDUSES]\n;;Name           SweepInterval  SweepFraction  SweepAvail\n;;-------------- -------------- -------------- ----------\n`;
+    lus.forEach(lu => {
+      inp += `${pd(lu.name, 16)} ${pd(f(lu.sweepInterval), 14)} ${pd(f(lu.sweepFraction), 14)} ${pd(f(lu.sweepAvail), 10)}\n`;
+    });
+    inp += '\n';
+  }
+
+  // Buildup
+  const bus = p.buildups || [];
+  if (bus.length) {
+    inp += `[BUILDUP]\n;;Landuse         Pollutant        FuncType   C1         C2         C3         PerUnit\n;;-------------- ---------------- ---------- ---------- ---------- ---------- ----------\n`;
+    bus.forEach(bu => {
+      inp += `${pd(bu.landuse, 16)} ${pd(bu.pollutant, 16)} ${pd(bu.funcType, 10)} ${pd(f(bu.c1), 10)} ${pd(f(bu.c2), 10)} ${pd(f(bu.c3), 10)} ${pd(bu.perUnit || 'AREA', 10)}\n`;
+    });
+    inp += '\n';
+  }
+
+  // Washoff
+  const wos = p.washoffs || [];
+  if (wos.length) {
+    inp += `[WASHOFF]\n;;Landuse         Pollutant        FuncType   C1         C2         SweepEff   BMPEff\n;;-------------- ---------------- ---------- ---------- ---------- ---------- ----------\n`;
+    wos.forEach(wo => {
+      inp += `${pd(wo.landuse, 16)} ${pd(wo.pollutant, 16)} ${pd(wo.funcType, 10)} ${pd(f(wo.c1), 10)} ${pd(f(wo.c2), 10)} ${pd(f(wo.sweepEffic), 10)} ${pd(f(wo.bmPct), 10)}\n`;
+    });
+    inp += '\n';
+  }
+
+  // Loadings
+  const lds = p.loadings || [];
+  if (lds.length) {
+    inp += `[LOADINGS]\n;;Subcatchment    Pollutant        InitBuildup\n;;-------------- ---------------- ----------\n`;
+    lds.forEach(ld => {
+      inp += `${pd(ld.subcatchment, 16)} ${pd(ld.pollutant, 16)} ${pd(f(ld.value), 10)}\n`;
     });
     inp += '\n';
   }
