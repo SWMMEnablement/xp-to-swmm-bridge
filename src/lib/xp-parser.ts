@@ -1004,6 +1004,227 @@ export class XPParser {
     if (this.pollutants.length > 0) {
       this.warnings.push(`Extracted ${this.pollutants.length} pollutant(s) — verify buildup/washoff parameters against original model.`);
     }
+
+    // Phase 14: Real-Time Control Rules from CONF group and EXTR:E1 CNTLS flag
+    // XPSWMM stores RTC rules in CONF group cards. Each rule has conditions (sensor readings)
+    // and actions (pump/orifice/weir settings). The E1 card CNTLS field flags nodes with controls.
+    // CONF:C1 = rule definitions, CONF:C2 = conditions, CONF:C3 = actions
+    const confKeys = Object.keys(rec).filter(k => k.startsWith('CONF:'));
+    if (confKeys.length > 0) {
+      this.parseControlRulesFromCONF(rec);
+    }
+
+    // Also extract control rules from structured CNTL cards if present
+    const cntlKeys = Object.keys(rec).filter(k => k.startsWith('CNTL:') || k === 'EXTR:CNTL');
+    if (cntlKeys.length > 0) {
+      this.parseControlRulesFromCNTL(rec);
+    }
+
+    // Infer control rules from pump on/off settings and node depth thresholds
+    // if no explicit rules found
+    if (this.controlRules.length === 0) {
+      this.inferControlRulesFromPumps();
+    }
+
+    if (this.controlRules.length > 0) {
+      this.warnings.push(`Extracted ${this.controlRules.length} control rule(s) — verify thresholds and logic against original model.`);
+    }
+  }
+
+  private parseControlRulesFromCONF(rec: RecordMap) {
+    // CONF group stores control configurations
+    // C1 cards: rule name/definition
+    // C2 cards: conditions (IF clauses)
+    // C3 cards: actions (THEN clauses)
+    const nodeNameMap: Record<number, string> = {};
+    this.nodes.forEach(n => { nodeNameMap[n.idx] = n.name; });
+    const linkNameMap: Record<number, string> = {};
+    this.links.forEach(l => { linkNameMap[l.idx] = l.name; });
+
+    const c1Data = rec['CONF:C1'];
+    if (c1Data) {
+      for (const [oiStr, subs] of Object.entries(c1Data)) {
+        const oi = parseInt(oiStr);
+        if (oi <= 0) continue;
+
+        const rule: XPControlRule = {
+          name: `Rule_${oi}`,
+          priority: 1,
+          conditions: [],
+          conditionLogic: 'AND',
+          actions: [],
+          elseActions: [],
+        };
+
+        // Parse rule name from C1
+        for (const [, records] of Object.entries(subs)) {
+          for (const data of records) {
+            const parts = data.trim().split(/\s+/);
+            if (parts[0]) rule.name = parts[0];
+            if (parts[1]) rule.priority = parseInt(parts[1]) || 1;
+          }
+        }
+
+        // Parse conditions from C2
+        const c2Subs = rec['CONF:C2']?.[oi];
+        if (c2Subs) {
+          for (const [, records] of Object.entries(c2Subs)) {
+            for (const data of records) {
+              const parts = data.trim().split(/\s+/);
+              // Format: variable_type element_id attribute relation value [AND/OR]
+              if (parts.length >= 5) {
+                const varType = parts[0].toUpperCase(); // NODE or LINK
+                const elemId = parts[1];
+                const attr = parts[2].toUpperCase();
+                const rel = parts[3];
+                const val = parts[4];
+                const resolvedId = varType === 'NODE'
+                  ? (nodeNameMap[parseInt(elemId)] || elemId)
+                  : (linkNameMap[parseInt(elemId)] || elemId);
+                rule.conditions.push({
+                  variable: varType === 'LINK' ? 'LINK' : 'NODE',
+                  id: resolvedId,
+                  attribute: attr,
+                  relation: rel,
+                  value: val,
+                });
+                if (parts[5] && (parts[5].toUpperCase() === 'OR')) {
+                  rule.conditionLogic = 'OR';
+                }
+              }
+            }
+          }
+        }
+
+        // Parse actions from C3
+        const c3Subs = rec['CONF:C3']?.[oi];
+        if (c3Subs) {
+          for (const [, records] of Object.entries(c3Subs)) {
+            for (const data of records) {
+              const parts = data.trim().split(/\s+/);
+              // Format: link_id attribute value [ELSE link_id attribute value]
+              if (parts.length >= 3) {
+                const linkId = linkNameMap[parseInt(parts[0])] || parts[0];
+                const attr = parts[1].toUpperCase();
+                const val = parts[2];
+                rule.actions.push({ link: linkId, attribute: attr, value: val });
+
+                // Check for ELSE actions
+                if (parts.length >= 7 && parts[3].toUpperCase() === 'ELSE') {
+                  const eLinkId = linkNameMap[parseInt(parts[4])] || parts[4];
+                  rule.elseActions.push({ link: eLinkId, attribute: parts[5].toUpperCase(), value: parts[6] });
+                }
+              }
+            }
+          }
+        }
+
+        if (rule.conditions.length > 0 || rule.actions.length > 0) {
+          this.controlRules.push(rule);
+        }
+      }
+    }
+  }
+
+  private parseControlRulesFromCNTL(rec: RecordMap) {
+    const nodeNameMap: Record<number, string> = {};
+    this.nodes.forEach(n => { nodeNameMap[n.idx] = n.name; });
+    const linkNameMap: Record<number, string> = {};
+    this.links.forEach(l => { linkNameMap[l.idx] = l.name; });
+
+    // Look for CNTL group cards or EXTR:CNTL
+    for (const key of Object.keys(rec)) {
+      if (!key.startsWith('CNTL:') && key !== 'EXTR:CNTL') continue;
+      const data = rec[key];
+      for (const [oiStr, subs] of Object.entries(data)) {
+        const oi = parseInt(oiStr);
+        if (oi <= 0) continue;
+        for (const [, records] of Object.entries(subs)) {
+          for (const rawData of records) {
+            const parts = rawData.trim().split(/\s+/);
+            if (parts.length < 4) continue;
+
+            // Try to parse structured control definition
+            // Common format: RuleName SensorNode Attribute Threshold ActionLink Action
+            const ruleName = parts[0] || `CNTL_${oi}`;
+            const sensorNode = nodeNameMap[parseInt(parts[1])] || parts[1];
+            const attribute = (parts[2] || 'DEPTH').toUpperCase();
+            const threshold = parts[3] || '0';
+            const actionLink = parts.length > 4 ? (linkNameMap[parseInt(parts[4])] || parts[4]) : '';
+            const actionVal = parts.length > 5 ? parts[5].toUpperCase() : 'ON';
+
+            const rule: XPControlRule = {
+              name: ruleName,
+              priority: 1,
+              conditions: [{
+                variable: 'NODE',
+                id: sensorNode,
+                attribute: attribute,
+                relation: '>',
+                value: threshold,
+              }],
+              conditionLogic: 'AND',
+              actions: actionLink ? [{ link: actionLink, attribute: 'STATUS', value: actionVal }] : [],
+              elseActions: [],
+            };
+
+            if (!this.controlRules.find(r => r.name === ruleName)) {
+              this.controlRules.push(rule);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  private inferControlRulesFromPumps() {
+    // Generate implicit control rules from pump on/off depth settings
+    const pumpLinks = this.links.filter(l => l.type === 'Pump' && (l.pon! > 0 || l.poff! > 0));
+    for (const pl of pumpLinks) {
+      if (pl.pon! > 0 || pl.poff! > 0) {
+        const ruleName = `Pump_${pl.name}_Control`;
+        const usNode = pl.usNode || '';
+        if (!usNode) continue;
+
+        const rule: XPControlRule = {
+          name: ruleName,
+          priority: 1,
+          conditions: [{
+            variable: 'NODE',
+            id: usNode,
+            attribute: 'DEPTH',
+            relation: '>',
+            value: String(pl.pon || 0),
+          }],
+          conditionLogic: 'AND',
+          actions: [{ link: pl.name, attribute: 'STATUS', value: 'ON' }],
+          elseActions: [],
+        };
+
+        // Add OFF rule if poff is set
+        if (pl.poff! > 0) {
+          rule.elseActions.push({ link: pl.name, attribute: 'STATUS', value: 'OFF' });
+          // Add a second condition interpretation: turn off when depth drops below poff
+          const offRule: XPControlRule = {
+            name: `Pump_${pl.name}_Off`,
+            priority: 2,
+            conditions: [{
+              variable: 'NODE',
+              id: usNode,
+              attribute: 'DEPTH',
+              relation: '<',
+              value: String(pl.poff),
+            }],
+            conditionLogic: 'AND',
+            actions: [{ link: pl.name, attribute: 'STATUS', value: 'OFF' }],
+            elseActions: [],
+          };
+          this.controlRules.push(offRule);
+        }
+
+        this.controlRules.push(rule);
+      }
+    }
   }
 
   private parseSWMM34(lines: string[]) {
