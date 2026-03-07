@@ -206,6 +206,7 @@ type RecordMap = Record<string, Record<number, Record<number, string[]>>>;
 export class XPParser {
   nodes: XPNode[] = [];
   links: XPLink[] = [];
+  subcatchments: XPSubcatchment[] = [];
   jobControl: Record<string, string> = {};
   rawCards: Record<string, { data: string }[]> = {};
   format = 'unknown';
@@ -234,8 +235,9 @@ export class XPParser {
 
   getResult(): XPParseResult {
     return {
-      nodes: this.nodes, links: this.links, jobControl: this.jobControl,
-      rawCards: this.rawCards, format: this.format, title: this.title, warnings: this.warnings
+      nodes: this.nodes, links: this.links, subcatchments: this.subcatchments,
+      jobControl: this.jobControl, rawCards: this.rawCards,
+      format: this.format, title: this.title, warnings: this.warnings
     };
   }
 
