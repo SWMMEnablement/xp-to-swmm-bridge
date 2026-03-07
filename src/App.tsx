@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Documentation from "./pages/Documentation";
 import XPReader from "./pages/XPReader";
+import GitHubBatch from "./pages/GitHubBatch";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -19,6 +20,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/reader" element={<XPReader />} />
+          <Route path="/github-batch" element={<GitHubBatch />} />
           <Route path="/docs" element={<Documentation />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
