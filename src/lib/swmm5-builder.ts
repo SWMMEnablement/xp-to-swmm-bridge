@@ -1,4 +1,4 @@
-import { type XPParseResult, SHAPE_CODES } from './xp-parser';
+import { type XPParseResult, type XPTimeSeries, SHAPE_CODES } from './xp-parser';
 
 function f(v: number | undefined | null, d = 2): string {
   return v == null || v === 0 ? '0' : typeof v === 'number' ? v.toFixed(d) : String(v);
@@ -145,11 +145,38 @@ SKIP_STEADY_STATE    NO
     inp += '\n';
   }
 
-  const inflowNodes = p.nodes.filter(n => n.qinst && n.qinst > 0);
+  // Time Series
+  const tsList = p.timeSeries || [];
+  if (tsList.length) {
+    inp += `[TIMESERIES]\n;;Name           Time       Value\n;;-------------- ---------- ----------\n`;
+    tsList.forEach(ts => {
+      ts.points.forEach(pt => {
+        inp += `${pd(ts.name, 16)} ${pd(f(pt.time, 4), 10)} ${pd(f(pt.value, 4), 10)}\n`;
+      });
+      inp += `;\n`;
+    });
+    inp += '\n';
+  }
+
+  // Build map of node names to their time series
+  const nodeToTS: Record<string, string> = {};
+  tsList.forEach(ts => {
+    const node = p.nodes.find(n => n.idx === ts.nodeIdx);
+    if (node) nodeToTS[node.name] = ts.name;
+  });
+
+  const inflowNodes = p.nodes.filter(n => (n.qinst && n.qinst > 0) || nodeToTS[n.name]);
   if (inflowNodes.length) {
     inp += `[INFLOWS]\n;;Node           Constituent  Time Series      Type     Mfactor  Sfactor  Baseline Pattern\n;;-------------- ------------ ---------------- -------- -------- -------- -------- --------\n`;
     inflowNodes.forEach(n => {
-      inp += `${pd(n.name, 16)} FLOW         ""               FLOW     1.0      1.0      ${f(n.qinst)}\n`;
+      const tsName = nodeToTS[n.name];
+      if (tsName) {
+        const ts = tsList.find(t => t.name === tsName);
+        const type = ts?.type || 'FLOW';
+        inp += `${pd(n.name, 16)} ${pd(type, 12)} ${pd(tsName, 16)} ${pd(type, 8)} 1.0      1.0      ${f(n.qinst || 0)}\n`;
+      } else {
+        inp += `${pd(n.name, 16)} FLOW         ""               FLOW     1.0      1.0      ${f(n.qinst)}\n`;
+      }
     });
     inp += '\n';
   }
