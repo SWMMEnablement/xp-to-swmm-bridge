@@ -1,4 +1,4 @@
-import { type XPParseResult, type XPTimeSeries, type XPPumpCurve, SHAPE_CODES } from './xp-parser';
+import { type XPParseResult, type XPTimeSeries, type XPPumpCurve, type XPTransect, SHAPE_CODES } from './xp-parser';
 
 function f(v: number | undefined | null, d = 2): string {
   return v == null || v === 0 ? '0' : typeof v === 'number' ? v.toFixed(d) : String(v);
@@ -140,7 +140,11 @@ SKIP_STEADY_STATE    NO
     };
     cd.forEach(l => {
       const s = shapeMap[l.nklass || 0] || 'CIRCULAR';
-      inp += `${pd(l.name, 16)} ${pd(s, 12)} ${pd(f(l.deep), 10)} ${pd(f(l.wide), 10)} 0          0          ${l.barrel || 1}\n`;
+      if (s === 'IRREGULAR' && l.transectName) {
+        inp += `${pd(l.name, 16)} ${pd('IRREGULAR', 12)} ${pd(l.transectName, 10)} 0          0          0          ${l.barrel || 1}\n`;
+      } else {
+        inp += `${pd(l.name, 16)} ${pd(s, 12)} ${pd(f(l.deep), 10)} ${pd(f(l.wide), 10)} 0          0          ${l.barrel || 1}\n`;
+      }
     });
     orf.forEach(l => {
       const s = (l.onklass === 2) ? 'CIRCULAR' : 'RECT_CLOSED';
@@ -151,6 +155,26 @@ SKIP_STEADY_STATE    NO
       const geom1 = l.ytop ? (l.ytop - (l.ycrest || 0)) : 0;
       const geom2 = l.wlen || 0;
       inp += `${pd(l.name, 16)} RECT_OPEN    ${pd(f(geom1), 10)} ${pd(f(geom2), 10)} 0          0          \n`;
+    });
+    inp += '\n';
+  }
+
+  // Transects (HEC-2 format for irregular cross-sections)
+  const transects = p.transects || [];
+  if (transects.length) {
+    inp += `[TRANSECTS]\n`;
+    transects.forEach(t => {
+      if (t.points.length === 0) return;
+      inp += `NC  ${f(t.nLeft, 4)}  ${f(t.nRight, 4)}  ${f(t.nChannel, 4)}\n`;
+      inp += `X1  ${pd(t.name, 16)} ${t.points.length}      ${f(t.leftBank, 2)}     ${f(t.rightBank, 2)}     0.0     0.0     0.0     0.0     0.0\n`;
+      for (let i = 0; i < t.points.length; i += 4) {
+        let gr = 'GR  ';
+        for (let j = i; j < Math.min(i + 4, t.points.length); j++) {
+          gr += `${f(t.points[j].elevation, 3)}  ${f(t.points[j].station, 3)}  `;
+        }
+        inp += gr.trimEnd() + '\n';
+      }
+      inp += `;\n`;
     });
     inp += '\n';
   }

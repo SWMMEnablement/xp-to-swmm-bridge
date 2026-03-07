@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { XPParser, type XPParseResult, type XPNode, type XPLink, type XPSubcatchment, type XPTimeSeries, type XPPumpCurve, DB, SHAPE_CODES, ROUTING_CODES, PUMP_CODES } from "@/lib/xp-parser";
+import { XPParser, type XPParseResult, type XPNode, type XPLink, type XPSubcatchment, type XPTimeSeries, type XPPumpCurve, type XPTransect, DB, SHAPE_CODES, ROUTING_CODES, PUMP_CODES } from "@/lib/xp-parser";
 import { buildINP, buildCSV } from "@/lib/swmm5-builder";
 import { Upload, FileDown, Map, Table, Settings, FileText, Search } from "lucide-react";
 
@@ -147,6 +147,9 @@ const XPReader = () => {
                     {result.pumpCurves.length > 0 && (
                       <Badge className="bg-primary/10 text-primary border-primary/20">{result.pumpCurves.length} pump curves</Badge>
                     )}
+                    {result.transects.length > 0 && (
+                      <Badge className="bg-success/10 text-success border-success/20">{result.transects.length} transects</Badge>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -165,6 +168,9 @@ const XPReader = () => {
                   {result.pumpCurves.length > 0 && (
                     <TabsTrigger value="pumpcurves" className="font-mono text-xs">Pump Curves <Badge variant="secondary" className="ml-1 text-xs">{result.pumpCurves.length}</Badge></TabsTrigger>
                   )}
+                  {result.transects.length > 0 && (
+                    <TabsTrigger value="transects" className="font-mono text-xs">Transects <Badge variant="secondary" className="ml-1 text-xs">{result.transects.length}</Badge></TabsTrigger>
+                  )}
                   <TabsTrigger value="jobctrl" className="font-mono text-xs">Job Control</TabsTrigger>
                   <TabsTrigger value="map" className="font-mono text-xs">Network Map</TabsTrigger>
                   <TabsTrigger value="rawcards" className="font-mono text-xs">Raw Cards <Badge variant="secondary" className="ml-1 text-xs">{Object.keys(result.rawCards).length}</Badge></TabsTrigger>
@@ -180,6 +186,7 @@ const XPReader = () => {
                       { label: 'Subcatchments', value: result.subcatchments.length, color: 'text-accent-foreground' },
                       { label: 'Time Series', value: result.timeSeries.length, color: 'text-warning' },
                       { label: 'Pump Curves', value: result.pumpCurves.length, color: 'text-primary' },
+                      { label: 'Transects', value: result.transects.length, color: 'text-success' },
                       { label: 'Junctions', value: stats?.nt.Junction || 0, color: 'text-primary' },
                       { label: 'Outfalls', value: stats?.nt.Outfall || 0, color: 'text-warning' },
                       { label: 'Storage', value: stats?.nt.Storage || 0, color: 'text-primary' },
@@ -493,6 +500,123 @@ const XPReader = () => {
                   </TabsContent>
                 )}
 
+                {/* Transects */}
+                {result.transects.length > 0 && (
+                  <TabsContent value="transects">
+                    <div className="space-y-4">
+                      {result.transects.map((t, i) => {
+                        const link = result.links.find(l => l.idx === t.linkIdx);
+                        const minElev = t.points.length > 0 ? Math.min(...t.points.map(p => p.elevation)) : 0;
+                        const maxElev = t.points.length > 0 ? Math.max(...t.points.map(p => p.elevation)) : 1;
+                        const maxStation = t.points.length > 0 ? t.points[t.points.length - 1].station : 1;
+                        const minStation = t.points.length > 0 ? t.points[0].station : 0;
+                        const elevRange = maxElev - minElev || 1;
+                        const staRange = maxStation - minStation || 1;
+                        return (
+                          <Card key={i}>
+                            <CardHeader className="py-3">
+                              <div className="flex items-center gap-3 flex-wrap">
+                                <CardTitle className="text-sm font-mono">{t.name}</CardTitle>
+                                <Badge variant="outline" className="font-mono text-xs">IRREGULAR</Badge>
+                                <span className="text-xs text-muted-foreground font-mono">
+                                  Link: {link?.name || `OI_${t.linkIdx}`} • {t.points.length} stations •
+                                  n={f(t.nChannel, 4)} • Banks: {f(t.leftBank)}–{f(t.rightBank)}
+                                </span>
+                              </div>
+                            </CardHeader>
+                            <CardContent className="py-2">
+                              {t.points.length > 0 ? (
+                                <>
+                                  <div className="border rounded-lg overflow-hidden mb-3">
+                                    <svg viewBox="0 0 600 180" className="w-full" style={{ height: 180 }}>
+                                      <rect width={600} height={180} fill="hsl(var(--card))" />
+                                      {/* Axes */}
+                                      <line x1={50} y1={160} x2={580} y2={160} stroke="hsl(var(--border))" strokeWidth={1} />
+                                      <line x1={50} y1={10} x2={50} y2={160} stroke="hsl(var(--border))" strokeWidth={1} />
+                                      {/* Fill under curve */}
+                                      <polygon
+                                        fill="hsl(var(--primary))"
+                                        opacity={0.15}
+                                        points={[
+                                          `${50 + ((t.points[0]?.station || 0) - minStation) / staRange * 520},160`,
+                                          ...t.points.map(pt => {
+                                            const px = 50 + (pt.station - minStation) / staRange * 520;
+                                            const py = 160 - ((pt.elevation - minElev) / elevRange) * 140;
+                                            return `${px},${py}`;
+                                          }),
+                                          `${50 + ((t.points[t.points.length - 1]?.station || 0) - minStation) / staRange * 520},160`,
+                                        ].join(' ')}
+                                      />
+                                      {/* Cross-section line */}
+                                      <polyline
+                                        fill="none"
+                                        stroke="hsl(var(--primary))"
+                                        strokeWidth={2}
+                                        points={t.points.map(pt => {
+                                          const px = 50 + (pt.station - minStation) / staRange * 520;
+                                          const py = 160 - ((pt.elevation - minElev) / elevRange) * 140;
+                                          return `${px},${py}`;
+                                        }).join(' ')}
+                                      />
+                                      {/* Bank station markers */}
+                                      {[t.leftBank, t.rightBank].map((bank, bi) => {
+                                        const bx = 50 + (bank - minStation) / staRange * 520;
+                                        return (
+                                          <line key={bi} x1={bx} y1={10} x2={bx} y2={160}
+                                            stroke="hsl(var(--warning))" strokeWidth={1} strokeDasharray="4,3" opacity={0.7}>
+                                            <title>{bi === 0 ? 'Left' : 'Right'} bank: {f(bank)}</title>
+                                          </line>
+                                        );
+                                      })}
+                                      {/* Points */}
+                                      {t.points.map((pt, j) => {
+                                        const px = 50 + (pt.station - minStation) / staRange * 520;
+                                        const py = 160 - ((pt.elevation - minElev) / elevRange) * 140;
+                                        return (
+                                          <circle key={j} cx={px} cy={py} r={2.5} fill="hsl(var(--primary))">
+                                            <title>Sta={f(pt.station, 3)}, Elev={f(pt.elevation, 3)}</title>
+                                          </circle>
+                                        );
+                                      })}
+                                      {/* Labels */}
+                                      <text x={315} y={175} fill="hsl(var(--muted-foreground))" fontSize={9} fontFamily="monospace" textAnchor="middle">Station</text>
+                                      <text x={10} y={90} fill="hsl(var(--muted-foreground))" fontSize={9} fontFamily="monospace" transform="rotate(-90 10 90)">Elevation</text>
+                                      <text x={55} y={10} fill="hsl(var(--muted-foreground))" fontSize={8} fontFamily="monospace">{f(maxElev, 2)}</text>
+                                      <text x={55} y={158} fill="hsl(var(--muted-foreground))" fontSize={8} fontFamily="monospace">{f(minElev, 2)}</text>
+                                    </svg>
+                                  </div>
+                                  <div className="overflow-x-auto border rounded-lg max-h-48">
+                                    <table className="w-full text-xs">
+                                      <thead>
+                                        <tr className="bg-muted/50 border-b">
+                                          <th className="px-3 py-1 text-left font-mono text-muted-foreground">#</th>
+                                          <th className="px-3 py-1 text-right font-mono text-muted-foreground">Station</th>
+                                          <th className="px-3 py-1 text-right font-mono text-muted-foreground">Elevation</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {t.points.map((pt, j) => (
+                                          <tr key={j} className="border-b border-border/50 hover:bg-muted/30">
+                                            <td className="px-3 py-0.5 font-mono text-muted-foreground">{j + 1}</td>
+                                            <td className="px-3 py-0.5 font-mono text-right">{f(pt.station, 4)}</td>
+                                            <td className="px-3 py-0.5 font-mono text-right text-primary">{f(pt.elevation, 4)}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </>
+                              ) : (
+                                <p className="text-sm text-muted-foreground">No station-elevation data found for this transect.</p>
+                              )}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </TabsContent>
+                )}
+
                 <TabsContent value="jobctrl">
                   {Object.keys(result.jobControl).length === 0 ? (
                     <Card><CardContent className="py-4 text-sm text-muted-foreground">No job control data found.</CardContent></Card>
@@ -568,7 +692,15 @@ const XPReader = () => {
                             <FileDown className="h-4 w-4 mr-2" /> Pump Curves CSV
                           </Button>
                         )}
-                        <Button variant="outline" onClick={() => download(JSON.stringify({ format: result.format, title: result.title, nodes: result.nodes, links: result.links, subcatchments: result.subcatchments, timeSeries: result.timeSeries, pumpCurves: result.pumpCurves, jobControl: result.jobControl }, null, 2), 'xpswmm_data.json', 'application/json')}>
+                        {result.transects.length > 0 && (
+                          <Button onClick={() => {
+                            const rows = result.transects.flatMap(t => t.points.map(pt => ({ transect: t.name, link: result.links.find(l => l.idx === t.linkIdx)?.name || '', n: t.nChannel, station: pt.station, elevation: pt.elevation })));
+                            download(buildCSV(rows as any), 'xpswmm_transects.csv', 'text/csv');
+                          }}>
+                            <FileDown className="h-4 w-4 mr-2" /> Transects CSV
+                          </Button>
+                        )}
+                        <Button variant="outline" onClick={() => download(JSON.stringify({ format: result.format, title: result.title, nodes: result.nodes, links: result.links, subcatchments: result.subcatchments, timeSeries: result.timeSeries, pumpCurves: result.pumpCurves, transects: result.transects, jobControl: result.jobControl }, null, 2), 'xpswmm_data.json', 'application/json')}>
                           Full JSON
                         </Button>
                         <Button variant="outline" onClick={() => download(buildINP(result), 'xpswmm_converted.inp', 'text/plain')}>

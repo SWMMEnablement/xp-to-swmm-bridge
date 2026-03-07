@@ -166,6 +166,7 @@ export interface XPLink {
   pumpType?: string;
   weirType?: string;
   zp?: number;
+  transectName?: string;
   [key: string]: unknown;
 }
 
@@ -227,12 +228,29 @@ export interface XPPumpCurve {
   points: XPPumpCurvePoint[];
 }
 
+export interface XPTransectPoint {
+  station: number;
+  elevation: number;
+}
+
+export interface XPTransect {
+  name: string;
+  linkIdx: number;       // OI of the associated link
+  nLeft: number;         // Manning's n for left overbank
+  nRight: number;        // Manning's n for right overbank
+  nChannel: number;      // Manning's n for main channel
+  leftBank: number;      // Station of left bank
+  rightBank: number;     // Station of right bank
+  points: XPTransectPoint[];
+}
+
 export interface XPParseResult {
   nodes: XPNode[];
   links: XPLink[];
   subcatchments: XPSubcatchment[];
   timeSeries: XPTimeSeries[];
   pumpCurves: XPPumpCurve[];
+  transects: XPTransect[];
   jobControl: Record<string, string>;
   rawCards: Record<string, { data: string }[]>;
   format: string;
@@ -248,6 +266,7 @@ export class XPParser {
   subcatchments: XPSubcatchment[] = [];
   timeSeries: XPTimeSeries[] = [];
   pumpCurves: XPPumpCurve[] = [];
+  transects: XPTransect[] = [];
   jobControl: Record<string, string> = {};
   rawCards: Record<string, { data: string }[]> = {};
   format = 'unknown';
@@ -276,7 +295,7 @@ export class XPParser {
   getResult(): XPParseResult {
     return {
       nodes: this.nodes, links: this.links, subcatchments: this.subcatchments,
-      timeSeries: this.timeSeries, pumpCurves: this.pumpCurves,
+      timeSeries: this.timeSeries, pumpCurves: this.pumpCurves, transects: this.transects,
       jobControl: this.jobControl, rawCards: this.rawCards,
       format: this.format, title: this.title, warnings: this.warnings
     };
@@ -700,6 +719,88 @@ export class XPParser {
         pumpTypeName: PUMP_CODES[iptyp] || `Type ${iptyp}`,
         curveType: swmmType[iptyp] || 'Pump2',
         points: curvePoints,
+      });
+    }
+
+    // Phase 12: Transects from TRAN group (irregular cross-sections, NKLASS=8 or 15)
+    // TRAN cards store station-elevation data for natural channel cross-sections
+    const irregularLinks = this.links.filter(l => l.nklass === 8 || l.nklass === 15);
+    for (const il of irregularLinks) {
+      const oi = il.idx;
+      const transectName = `XS_${il.name}`;
+      const points: XPTransectPoint[] = [];
+
+      // Get Manning's n from the conduit roughness
+      const nChannel = il.rough || 0.035;
+      const nLeft = nChannel;
+      const nRight = nChannel;
+
+      // Look for TRAN group station-elevation data
+      // TRAN cards store cross-section geometry as station-elevation pairs
+      const tranKeys = Object.keys(rec).filter(k => k.startsWith('TRAN:'));
+      for (const tk of tranKeys) {
+        const tranData = rec[tk]?.[oi];
+        if (tranData) {
+          for (const [, records] of Object.entries(tranData)) {
+            for (const data of records) {
+              const vals = data.trim().split(/\s+/).map(Number).filter(v => !isNaN(v));
+              for (let i = 0; i < vals.length - 1; i += 2) {
+                points.push({ station: vals[i], elevation: vals[i + 1] });
+              }
+            }
+          }
+        }
+      }
+
+      // Also check EXTR:C2 and EXTR:C3 cards which can hold transect data
+      const c2Subs = rec['EXTR:C2']?.[oi];
+      if (c2Subs) {
+        for (const [, records] of Object.entries(c2Subs)) {
+          for (const data of records) {
+            const vals = data.trim().split(/\s+/).map(Number).filter(v => !isNaN(v));
+            for (let i = 0; i < vals.length - 1; i += 2) {
+              points.push({ station: vals[i], elevation: vals[i + 1] });
+            }
+          }
+        }
+      }
+
+      const c3Subs = rec['EXTR:C3']?.[oi];
+      if (c3Subs) {
+        for (const [, records] of Object.entries(c3Subs)) {
+          for (const data of records) {
+            const vals = data.trim().split(/\s+/).map(Number).filter(v => !isNaN(v));
+            for (let i = 0; i < vals.length - 1; i += 2) {
+              points.push({ station: vals[i], elevation: vals[i + 1] });
+            }
+          }
+        }
+      }
+
+      // Sort by station and remove duplicates
+      points.sort((a, b) => a.station - b.station);
+      const uniquePoints = points.filter((p, i) => i === 0 || p.station !== points[i - 1].station);
+
+      // Determine bank stations (default to 20%/80% of total width)
+      let leftBank = 0, rightBank = 0;
+      if (uniquePoints.length >= 3) {
+        const totalWidth = uniquePoints[uniquePoints.length - 1].station - uniquePoints[0].station;
+        leftBank = uniquePoints[0].station + totalWidth * 0.2;
+        rightBank = uniquePoints[0].station + totalWidth * 0.8;
+      }
+
+      // Update link to reference the transect name
+      il.transectName = transectName;
+
+      this.transects.push({
+        name: transectName,
+        linkIdx: oi,
+        nLeft,
+        nRight,
+        nChannel,
+        leftBank,
+        rightBank,
+        points: uniquePoints,
       });
     }
   }
