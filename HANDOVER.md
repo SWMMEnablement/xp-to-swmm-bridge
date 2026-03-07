@@ -440,18 +440,18 @@ Dark mode overrides in `.dark` class. Theme persisted via `localStorage('xp-them
 
 ## 12. Known Limitations
 
-| Area | Limitation |
+| Area | Status |
 |---|---|
-| **Subcatchments** | Not parsed (SWMM Runoff block not implemented) |
-| **Time series** | Inflow time series references not converted |
-| **Pump curves** | Referenced by name but curve data not extracted |
-| **Transects** | Irregular cross-section station-elevation data not parsed |
-| **Pollutants** | Water quality parameters not converted |
-| **Controls/Rules** | Real-time control rules not mapped |
-| **Multi-conduit** | Only primary conduit (grpno 0/1) exported; multi-conduit dashlinks partially supported |
-| **Coordinate transforms** | Raw database coordinates used; no PointPlaneToUser transformation |
-| **RTF wrapper** | Basic RTF stripping; complex RTF may leave artifacts |
-| **GitHub API** | 60 requests/hour unauthenticated; max 10 subdirectories scanned |
+| **Subcatchments** | ✅ Parsed — Horton, Green-Ampt, and SCS infiltration supported |
+| **Time series** | ✅ Inflow hydrograph time series extracted and converted |
+| **Pump curves** | ✅ Performance curve X-Y data extracted; `[CURVES]` section generated (Types 1–4) |
+| **Transects** | ❌ Irregular cross-section station-elevation data not parsed |
+| **Pollutants** | ❌ Water quality parameters not converted |
+| **Controls/Rules** | ❌ Real-time control rules not mapped |
+| **Multi-conduit** | ⚠️ Only primary conduit (grpno 0/1) exported; multi-conduit dashlinks partially supported |
+| **Coordinate transforms** | ⚠️ Raw database coordinates used; no PointPlaneToUser transformation |
+| **RTF wrapper** | ⚠️ Basic RTF stripping; complex RTF may leave artifacts |
+| **GitHub API** | ⚠️ 60 requests/hour unauthenticated; max 10 subdirectories scanned |
 
 ---
 
