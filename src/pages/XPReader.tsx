@@ -273,6 +273,48 @@ const XPReader = () => {
                   </div>
                 </TabsContent>
 
+                {/* Subcatchments */}
+                {result.subcatchments.length > 0 && (
+                  <TabsContent value="subcatchments">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Search className="h-4 w-4 text-muted-foreground" />
+                      <Input placeholder="Filter subcatchments..." className="font-mono text-sm max-w-xs" value={scFilter} onChange={e => setScFilter(e.target.value)} />
+                    </div>
+                    <div className="overflow-x-auto border rounded-lg">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-muted/50 border-b">
+                            {['#', 'Name', 'Outlet', 'Area', 'Width', '%Imperv', 'Slope%', 'N-Imp', 'N-Perv', 'DS-Imp', 'DS-Perv', 'f0', 'ff', 'Decay', 'Rain Gage'].map(h => (
+                              <th key={h} className="px-3 py-2 text-left font-mono text-xs text-muted-foreground uppercase tracking-wider whitespace-nowrap">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredSubcatchments.map(s => (
+                            <tr key={s.idx} className="border-b border-border/50 hover:bg-muted/30">
+                              <td className="px-3 py-1.5 font-mono text-xs text-muted-foreground">{s.idx}</td>
+                              <td className="px-3 py-1.5 font-mono text-xs text-primary font-medium">{s.name}</td>
+                              <td className="px-3 py-1.5 font-mono text-xs">{s.outlet}</td>
+                              <td className="px-3 py-1.5 font-mono text-xs text-right">{f(s.area)}</td>
+                              <td className="px-3 py-1.5 font-mono text-xs text-right">{f(s.width)}</td>
+                              <td className="px-3 py-1.5 font-mono text-xs text-right">{f(s.imperv)}</td>
+                              <td className="px-3 py-1.5 font-mono text-xs text-right">{f(s.slope, 4)}</td>
+                              <td className="px-3 py-1.5 font-mono text-xs text-right">{f(s.nImperv, 4)}</td>
+                              <td className="px-3 py-1.5 font-mono text-xs text-right">{f(s.nPerv, 4)}</td>
+                              <td className="px-3 py-1.5 font-mono text-xs text-right">{f(s.dsImperv)}</td>
+                              <td className="px-3 py-1.5 font-mono text-xs text-right">{f(s.dsPerv)}</td>
+                              <td className="px-3 py-1.5 font-mono text-xs text-right">{s.f0 ? f(s.f0) : ''}</td>
+                              <td className="px-3 py-1.5 font-mono text-xs text-right">{s.ff ? f(s.ff) : ''}</td>
+                              <td className="px-3 py-1.5 font-mono text-xs text-right">{s.fDecay ? f(s.fDecay) : ''}</td>
+                              <td className="px-3 py-1.5 font-mono text-xs">{s.rainGage}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </TabsContent>
+                )}
+
                 {/* Job Control */}
                 <TabsContent value="jobctrl">
                   {Object.keys(result.jobControl).length === 0 ? (
