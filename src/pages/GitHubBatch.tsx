@@ -232,7 +232,7 @@ const GitHubBatch = () => {
         const parsed = parser.parse(text);
         const inp = buildINP(parsed);
         setResults(prev => prev.map((r, j) =>
-          j === i ? { ...r, status: "done", nodes: parsed.nodes.length, links: parsed.links.length, inp } : r
+          j === i ? { ...r, status: "done", nodes: parsed.nodes.length, links: parsed.links.length, subcatchments: parsed.subcatchments.length, inp } : r
         ));
       } catch (e: any) {
         setResults(prev => prev.map((r, j) =>
