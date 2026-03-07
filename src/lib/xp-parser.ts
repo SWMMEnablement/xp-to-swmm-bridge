@@ -594,32 +594,71 @@ export class XPParser {
     };
     const strProps = new Set(['name', 'usNode', 'dsNode', 'type']);
 
+    const scFmap: Record<string, string> = {
+      SAREA: 'area', AREA: 'area', SWID: 'width', SSLOPE: 'slope', SLOPE: 'slope',
+      SIMPERV: 'imperv', IMPERV: 'imperv', PERCENT_IMPERV: 'imperv',
+      SOUTLET: 'outlet', OUTLET: 'outlet', OUTLET_NODE: 'outlet',
+      SNIMP: 'nImperv', N_IMPERV: 'nImperv', SNPERV: 'nPerv', N_PERV: 'nPerv',
+      SDSIP: 'dsImperv', DS_IMPERV: 'dsImperv', SDSPV: 'dsPerv', DS_PERV: 'dsPerv',
+      SPZIMP: 'pctZero', PCT_ZERO: 'pctZero',
+      SF0: 'f0', MAX_RATE: 'f0', SFF: 'ff', MIN_RATE: 'ff',
+      SFDECAY: 'fDecay', DECAY: 'fDecay', SFDRY: 'fDry', DRY_TIME: 'fDry',
+      SCURVEN: 'curveNum', CURVE_NUMBER: 'curveNum',
+      SCONDUC: 'conduc', CONDUCTIVITY: 'conduc',
+      SHEAD: 'suctionHead', SUCTION_HEAD: 'suctionHead',
+      SIMD: 'initMoisDef', INIT_DEFICIT: 'initMoisDef',
+      SRGNAME: 'rainGage', RAIN_GAGE: 'rainGage',
+    };
+    const scStrProps = new Set(['name', 'outlet', 'rainGage', 'routeTo']);
+
     for (const line of lines) {
       const t = line.trim();
       if (!t || t[0] === ';' || t[0] === '*') continue;
       if (t === '[NODE]') {
         if (cur && ot === 'n') this.nodes.push(cur);
         if (cur && ot === 'l') this.links.push(cur);
+        if (cur && ot === 's') this.subcatchments.push(cur);
         cur = { idx: this.nodes.length + 1, type: 'Junction', x: 0, y: 0, name: '', grelev: 0, y0: 0, qinst: 0 };
         ot = 'n'; continue;
       }
       if (t === '[LINK]') {
         if (cur && ot === 'n') this.nodes.push(cur);
         if (cur && ot === 'l') this.links.push(cur);
+        if (cur && ot === 's') this.subcatchments.push(cur);
         cur = { idx: this.links.length + 1, type: 'Conduit', barrel: 1, name: '', usNode: '', dsNode: '' };
         ot = 'l'; continue;
       }
+      if (t === '[SUBCATCHMENT]' || t === '[SUBCATCH]') {
+        if (cur && ot === 'n') this.nodes.push(cur);
+        if (cur && ot === 'l') this.links.push(cur);
+        if (cur && ot === 's') this.subcatchments.push(cur);
+        cur = { idx: this.subcatchments.length + 1, name: '', area: 0, width: 0, slope: 0, imperv: 0,
+          outlet: '', nImperv: 0.01, nPerv: 0.1, dsImperv: 0.05, dsPerv: 0.05, pctZero: 25,
+          routeTo: 'OUTLET', f0: 0, ff: 0, fDecay: 0, fDry: 0, fMaxVol: 0,
+          curveNum: 0, conduc: 0, suctionHead: 0, initMoisDef: 0, rainGage: '*' };
+        ot = 's'; continue;
+      }
       const eq = t.match(/^(\w+)\s*=\s*(.*)/);
       if (eq && cur) {
-        const k = eq[1].toUpperCase(), v = eq[2].trim(), prop = fmap[k];
-        if (prop) cur[prop] = strProps.has(prop) ? v : (parseFloat(v) || 0);
-        if (k === 'KO' && parseInt(v) > 0) cur.type = 'Outfall';
-        if (k === 'ASTORE' && parseFloat(v) > 0) cur.type = 'Storage';
-        if (k === 'NKLASS') cur.shapeName = SHAPE_CODES[parseInt(v)] || `Shape_${v}`;
+        const k = eq[1].toUpperCase(), v = eq[2].trim();
+        if (ot === 's') {
+          if (k === 'NAME' || k === 'SNAME') cur.name = v;
+          else {
+            const prop = scFmap[k];
+            if (prop) cur[prop] = scStrProps.has(prop) ? v : (parseFloat(v) || 0);
+          }
+        } else {
+          const prop = fmap[k];
+          if (prop) cur[prop] = strProps.has(prop) ? v : (parseFloat(v) || 0);
+          if (k === 'KO' && parseInt(v) > 0) cur.type = 'Outfall';
+          if (k === 'ASTORE' && parseFloat(v) > 0) cur.type = 'Storage';
+          if (k === 'NKLASS') cur.shapeName = SHAPE_CODES[parseInt(v)] || `Shape_${v}`;
+        }
       }
     }
     if (cur && ot === 'n') this.nodes.push(cur);
     if (cur && ot === 'l') this.links.push(cur);
+    if (cur && ot === 's') this.subcatchments.push(cur);
   }
 
   private extractJC(rec: RecordMap) {
