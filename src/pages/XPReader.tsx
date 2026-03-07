@@ -463,7 +463,7 @@ const XPReader = () => {
                             <FileDown className="h-4 w-4 mr-2" /> Subcatchments CSV
                           </Button>
                         )}
-                        <Button variant="outline" onClick={() => download(JSON.stringify({ format: result.format, title: result.title, nodes: result.nodes, links: result.links, subcatchments: result.subcatchments, jobControl: result.jobControl }, null, 2), 'xpswmm_data.json', 'application/json')}>
+                        <Button variant="outline" onClick={() => download(JSON.stringify({ format: result.format, title: result.title, nodes: result.nodes, links: result.links, subcatchments: result.subcatchments, timeSeries: result.timeSeries, jobControl: result.jobControl }, null, 2), 'xpswmm_data.json', 'application/json')}>
                           Full JSON
                         </Button>
                         <Button variant="outline" onClick={() => download(buildINP(result), 'xpswmm_converted.inp', 'text/plain')}>
