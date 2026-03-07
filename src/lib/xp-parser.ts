@@ -861,9 +861,125 @@ export class XPParser {
         points: uniquePoints,
       });
     }
+
+
+    // Phase 13: Pollutants / Water Quality from QUAL group
+    // XPSWMM stores quality data in QUAL:Q1 (pollutant defs), QUAL:Q2 (buildup/washoff)
+    // and RNFF:R6/R7 (subcatchment quality params)
+    const qualKeys = Object.keys(rec).filter(k => k.startsWith('QUAL:'));
+    if (qualKeys.length > 0) {
+      // Parse pollutant definitions from QUAL:Q1
+      const q1Data = rec['QUAL:Q1'];
+      if (q1Data) {
+        for (const [oiStr, subs] of Object.entries(q1Data)) {
+          const oi = parseInt(oiStr);
+          if (oi <= 0) continue;
+          for (const [, records] of Object.entries(subs)) {
+            for (const data of records) {
+              const parts = data.trim().split(/\s+/);
+              const name = parts[0] || `Pollutant_${oi}`;
+              const units = parts[1] || 'mg/L';
+              const cRain = parseFloat(parts[2]) || 0;
+              const cGW = parseFloat(parts[3]) || 0;
+              const cInit = parseFloat(parts[4]) || 0;
+              const decay = parseFloat(parts[5]) || 0;
+              if (!this.pollutants.find(p => p.name === name)) {
+                this.pollutants.push({
+                  name, units, cRain, cGW, cRDII: 0, cInit,
+                  decayCoeff: decay, snowOnly: false, coPollutant: '*', coFraction: 0,
+                });
+              }
+            }
+          }
+        }
+      }
+
+      // Parse buildup/washoff from QUAL:Q2
+      const q2Data = rec['QUAL:Q2'];
+      if (q2Data) {
+        for (const [oiStr, subs] of Object.entries(q2Data)) {
+          const oi = parseInt(oiStr);
+          if (oi <= 0) continue;
+          for (const [, records] of Object.entries(subs)) {
+            for (const data of records) {
+              const parts = data.trim().split(/\s+/);
+              const landuse = parts[0] || 'Default';
+              const pollutant = parts[1] || (this.pollutants[0]?.name || 'TSS');
+              const buType = parts[2] || 'POW';
+              const c1 = parseFloat(parts[3]) || 0;
+              const c2 = parseFloat(parts[4]) || 0;
+              const c3 = parseFloat(parts[5]) || 0;
+              const woType = parts[6] || 'EMC';
+              const w1 = parseFloat(parts[7]) || 0;
+              const w2 = parseFloat(parts[8]) || 0;
+              const sweepEff = parseFloat(parts[9]) || 0;
+
+              if (!this.landuses.find(l => l.name === landuse)) {
+                this.landuses.push({ name: landuse, sweepInterval: 0, sweepFraction: 0, sweepAvail: 0 });
+              }
+              this.buildups.push({ landuse, pollutant, funcType: buType, c1, c2, c3, perUnit: 'AREA' });
+              this.washoffs.push({ landuse, pollutant, funcType: woType, c1: w1, c2: w2, sweepEffic: sweepEff, bmPct: 0 });
+            }
+          }
+        }
+      }
+
+      // Parse loadings from QUAL:Q3
+      const q3Data = rec['QUAL:Q3'];
+      if (q3Data) {
+        for (const [oiStr, subs] of Object.entries(q3Data)) {
+          const oi = parseInt(oiStr);
+          if (oi <= 0) continue;
+          const scName = this.subcatchments.find(s => s.idx === oi)?.name || `Sub_${oi}`;
+          for (const [, records] of Object.entries(subs)) {
+            for (const data of records) {
+              const parts = data.trim().split(/\s+/);
+              for (let i = 0; i < parts.length - 1; i += 2) {
+                const pollName = parts[i];
+                const loadVal = parseFloat(parts[i + 1]) || 0;
+                if (pollName && loadVal > 0) {
+                  this.loadings.push({ subcatchment: scName, pollutant: pollName, value: loadVal });
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Also check RNFF:R6/R7 for subcatchment-level quality parameters
+    const r6Data = rec['RNFF:R6'];
+    if (r6Data) {
+      for (const [oiStr, subs] of Object.entries(r6Data)) {
+        const oi = parseInt(oiStr);
+        if (oi <= 0) continue;
+        const scName = this.subcatchments.find(s => s.idx === oi)?.name || `Sub_${oi}`;
+        for (const [, records] of Object.entries(subs)) {
+          for (const data of records) {
+            const parts = data.trim().split(/\s+/);
+            // R6 typically: pollutant_name units concentration buildup_rate washoff_coeff
+            const name = parts[0] || `Poll_${oi}`;
+            const units = parts[1] || 'mg/L';
+            const conc = parseFloat(parts[2]) || 0;
+            if (!this.pollutants.find(p => p.name === name)) {
+              this.pollutants.push({
+                name, units, cRain: conc, cGW: 0, cRDII: 0, cInit: 0,
+                decayCoeff: 0, snowOnly: false, coPollutant: '*', coFraction: 0,
+              });
+            }
+            if (conc > 0) {
+              this.loadings.push({ subcatchment: scName, pollutant: name, value: conc });
+            }
+          }
+        }
+      }
+    }
+
+    if (this.pollutants.length > 0) {
+      this.warnings.push(`Extracted ${this.pollutants.length} pollutant(s) — verify buildup/washoff parameters against original model.`);
+    }
   }
 
-  private parseSWMM34(lines: string[]) {
     const nodeMap: Record<string, XPNode> = {};
     const linkList: XPLink[] = [];
     for (const raw of lines) {
