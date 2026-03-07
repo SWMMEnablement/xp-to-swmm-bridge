@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { XPParser, type XPParseResult, type XPNode, type XPLink, type XPSubcatchment, type XPTimeSeries, type XPPumpCurve, type XPTransect, type XPPollutant, DB, SHAPE_CODES, ROUTING_CODES, PUMP_CODES } from "@/lib/xp-parser";
+import { XPParser, type XPParseResult, type XPNode, type XPLink, type XPSubcatchment, type XPTimeSeries, type XPPumpCurve, type XPTransect, type XPPollutant, type XPControlRule, DB, SHAPE_CODES, ROUTING_CODES, PUMP_CODES } from "@/lib/xp-parser";
 import { buildINP, buildCSV } from "@/lib/swmm5-builder";
 import { Upload, FileDown, Map, Table, Settings, FileText, Search } from "lucide-react";
 
@@ -153,6 +153,9 @@ const XPReader = () => {
                     {result.pollutants.length > 0 && (
                       <Badge className="bg-destructive/10 text-destructive border-destructive/20">{result.pollutants.length} pollutants</Badge>
                     )}
+                    {result.controlRules.length > 0 && (
+                      <Badge className="bg-warning/10 text-warning border-warning/20">{result.controlRules.length} controls</Badge>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -177,6 +180,9 @@ const XPReader = () => {
                   {result.pollutants.length > 0 && (
                     <TabsTrigger value="pollutants" className="font-mono text-xs">Pollutants <Badge variant="secondary" className="ml-1 text-xs">{result.pollutants.length}</Badge></TabsTrigger>
                   )}
+                  {result.controlRules.length > 0 && (
+                    <TabsTrigger value="controls" className="font-mono text-xs">Controls <Badge variant="secondary" className="ml-1 text-xs">{result.controlRules.length}</Badge></TabsTrigger>
+                  )}
                   <TabsTrigger value="jobctrl" className="font-mono text-xs">Job Control</TabsTrigger>
                   <TabsTrigger value="map" className="font-mono text-xs">Network Map</TabsTrigger>
                   <TabsTrigger value="rawcards" className="font-mono text-xs">Raw Cards <Badge variant="secondary" className="ml-1 text-xs">{Object.keys(result.rawCards).length}</Badge></TabsTrigger>
@@ -194,6 +200,7 @@ const XPReader = () => {
                       { label: 'Pump Curves', value: result.pumpCurves.length, color: 'text-primary' },
                       { label: 'Transects', value: result.transects.length, color: 'text-success' },
                       { label: 'Pollutants', value: result.pollutants.length, color: 'text-destructive' },
+                      { label: 'Controls', value: result.controlRules.length, color: 'text-warning' },
                       { label: 'Junctions', value: stats?.nt.Junction || 0, color: 'text-primary' },
                       { label: 'Outfalls', value: stats?.nt.Outfall || 0, color: 'text-warning' },
                       { label: 'Storage', value: stats?.nt.Storage || 0, color: 'text-primary' },
@@ -799,6 +806,91 @@ const XPReader = () => {
                   </TabsContent>
                 )}
 
+                {/* Controls */}
+                {result.controlRules.length > 0 && (
+                  <TabsContent value="controls">
+                    <div className="space-y-4">
+                      {result.controlRules.map((rule, i) => (
+                        <Card key={i}>
+                          <CardHeader className="py-3">
+                            <CardTitle className="text-sm font-mono flex items-center gap-2">
+                              <Badge variant="outline" className="font-mono">{rule.name}</Badge>
+                              {rule.priority > 1 && <Badge variant="secondary" className="text-xs">Priority {rule.priority}</Badge>}
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="py-2">
+                            <div className="font-mono text-sm space-y-1 bg-muted/30 p-3 rounded-lg border border-border">
+                              <div className="text-primary font-bold">RULE {rule.name}</div>
+                              {rule.conditions.map((cond, ci) => (
+                                <div key={ci} className="text-foreground">
+                                  <span className="text-warning font-bold">{ci === 0 ? 'IF' : rule.conditionLogic}</span>{' '}
+                                  <span className="text-muted-foreground">{cond.variable}</span>{' '}
+                                  <span className="text-primary">{cond.id}</span>{' '}
+                                  <span className="text-muted-foreground">{cond.attribute}</span>{' '}
+                                  <span className="text-destructive">{cond.relation}</span>{' '}
+                                  <span className="text-success">{cond.value}</span>
+                                </div>
+                              ))}
+                              {rule.actions.map((act, ai) => (
+                                <div key={ai} className="text-foreground">
+                                  <span className="text-warning font-bold">THEN</span>{' '}
+                                  <span className="text-primary">{act.link}</span>{' '}
+                                  <span className="text-muted-foreground">{act.attribute}</span>{' '}
+                                  <span className="text-foreground">=</span>{' '}
+                                  <span className="text-success">{act.value}</span>
+                                </div>
+                              ))}
+                              {rule.elseActions.map((act, ai) => (
+                                <div key={ai} className="text-foreground">
+                                  <span className="text-destructive font-bold">ELSE</span>{' '}
+                                  <span className="text-primary">{act.link}</span>{' '}
+                                  <span className="text-muted-foreground">{act.attribute}</span>{' '}
+                                  <span className="text-foreground">=</span>{' '}
+                                  <span className="text-success">{act.value}</span>
+                                </div>
+                              ))}
+                              {rule.priority > 1 && (
+                                <div className="text-muted-foreground">PRIORITY {rule.priority}</div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+
+                      <Card>
+                        <CardHeader className="py-3">
+                          <CardTitle className="text-sm font-mono">Control Rules Summary</CardTitle>
+                        </CardHeader>
+                        <CardContent className="py-2">
+                          <div className="overflow-x-auto border rounded-lg">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="bg-muted/50 border-b">
+                                  {['Rule', 'Conditions', 'Logic', 'Actions', 'Else Actions', 'Priority'].map(h => (
+                                    <th key={h} className="px-3 py-2 text-left font-mono text-xs text-muted-foreground uppercase tracking-wider whitespace-nowrap">{h}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {result.controlRules.map((rule, i) => (
+                                  <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
+                                    <td className="px-3 py-1.5 font-mono text-xs text-primary font-medium">{rule.name}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs">{rule.conditions.length}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-warning">{rule.conditionLogic}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs">{rule.actions.length}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs">{rule.elseActions.length}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{rule.priority}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </TabsContent>
+                )}
+
                 <TabsContent value="jobctrl">
                   {Object.keys(result.jobControl).length === 0 ? (
                     <Card><CardContent className="py-4 text-sm text-muted-foreground">No job control data found.</CardContent></Card>
@@ -887,7 +979,7 @@ const XPReader = () => {
                             <FileDown className="h-4 w-4 mr-2" /> Pollutants CSV
                           </Button>
                         )}
-                        <Button variant="outline" onClick={() => download(JSON.stringify({ format: result.format, title: result.title, nodes: result.nodes, links: result.links, subcatchments: result.subcatchments, timeSeries: result.timeSeries, pumpCurves: result.pumpCurves, transects: result.transects, pollutants: result.pollutants, landuses: result.landuses, buildups: result.buildups, washoffs: result.washoffs, loadings: result.loadings, jobControl: result.jobControl }, null, 2), 'xpswmm_data.json', 'application/json')}>
+                        <Button variant="outline" onClick={() => download(JSON.stringify({ format: result.format, title: result.title, nodes: result.nodes, links: result.links, subcatchments: result.subcatchments, timeSeries: result.timeSeries, pumpCurves: result.pumpCurves, transects: result.transects, controlRules: result.controlRules, pollutants: result.pollutants, landuses: result.landuses, buildups: result.buildups, washoffs: result.washoffs, loadings: result.loadings, jobControl: result.jobControl }, null, 2), 'xpswmm_data.json', 'application/json')}>
                           Full JSON
                         </Button>
                         <Button variant="outline" onClick={() => download(buildINP(result), 'xpswmm_converted.inp', 'text/plain')}>

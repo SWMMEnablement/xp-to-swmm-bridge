@@ -1,4 +1,4 @@
-import { type XPParseResult, type XPTimeSeries, type XPPumpCurve, type XPTransect, type XPPollutant, type XPLanduse, type XPBuildup, type XPWashoff, type XPLoading, SHAPE_CODES } from './xp-parser';
+import { type XPParseResult, type XPTimeSeries, type XPPumpCurve, type XPTransect, type XPPollutant, type XPLanduse, type XPBuildup, type XPWashoff, type XPLoading, type XPControlRule, SHAPE_CODES } from './xp-parser';
 
 function f(v: number | undefined | null, d = 2): string {
   return v == null || v === 0 ? '0' : typeof v === 'number' ? v.toFixed(d) : String(v);
@@ -318,6 +318,29 @@ SKIP_STEADY_STATE    NO
       inp += `${pd(ld.subcatchment, 16)} ${pd(ld.pollutant, 16)} ${pd(f(ld.value), 10)}\n`;
     });
     inp += '\n';
+  }
+
+  // Controls (Real-Time Control Rules)
+  const rules = p.controlRules || [];
+  if (rules.length) {
+    inp += `[CONTROLS]\n`;
+    rules.forEach(rule => {
+      inp += `RULE ${rule.name}\n`;
+      rule.conditions.forEach((cond, i) => {
+        const prefix = i === 0 ? 'IF' : rule.conditionLogic;
+        inp += `${prefix} ${cond.variable} ${cond.id} ${cond.attribute} ${cond.relation} ${cond.value}\n`;
+      });
+      rule.actions.forEach(act => {
+        inp += `THEN ${act.link} ${act.attribute} = ${act.value}\n`;
+      });
+      rule.elseActions.forEach(act => {
+        inp += `ELSE ${act.link} ${act.attribute} = ${act.value}\n`;
+      });
+      if (rule.priority > 1) {
+        inp += `PRIORITY ${rule.priority}\n`;
+      }
+      inp += `\n`;
+    });
   }
 
   inp += `[REPORT]\nSUBCATCHMENTS ALL\nNODES ALL\nLINKS ALL\n`;
