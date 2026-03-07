@@ -364,14 +364,16 @@ const GitHubBatch = () => {
                       {converting ? "Converting..." : `Convert ${selectedCount} File${selectedCount !== 1 ? "s" : ""}`}
                     </Button>
                     {doneCount > 0 && (
-                      <Button size="sm" variant="outline" onClick={() => downloadAll(results)}>
-                        <FileDown className="h-4 w-4 mr-2" />
-                        Download {doneCount} .inp
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => downloadAsZip(results)}>
-                        <Archive className="h-4 w-4 mr-2" />
-                        Download ZIP
-                      </Button>
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => downloadAll(results)}>
+                          <FileDown className="h-4 w-4 mr-2" />
+                          Download {doneCount} .inp
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => downloadAsZip(results)}>
+                          <Archive className="h-4 w-4 mr-2" />
+                          Download ZIP
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>
