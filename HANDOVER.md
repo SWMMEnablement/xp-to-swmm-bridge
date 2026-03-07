@@ -445,7 +445,7 @@ Dark mode overrides in `.dark` class. Theme persisted via `localStorage('xp-them
 | **Subcatchments** | ✅ Parsed — Horton, Green-Ampt, and SCS infiltration supported |
 | **Time series** | ✅ Inflow hydrograph time series extracted and converted |
 | **Pump curves** | ✅ Performance curve X-Y data extracted; `[CURVES]` section generated (Types 1–4) |
-| **Transects** | ❌ Irregular cross-section station-elevation data not parsed |
+| **Transects** | ✅ Station-elevation data extracted from TRAN/C2/C3 cards; `[TRANSECTS]` section generated in HEC-2 format |
 | **Pollutants** | ❌ Water quality parameters not converted |
 | **Controls/Rules** | ❌ Real-time control rules not mapped |
 | **Multi-conduit** | ⚠️ Only primary conduit (grpno 0/1) exported; multi-conduit dashlinks partially supported |
