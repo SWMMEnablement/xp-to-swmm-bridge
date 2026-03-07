@@ -624,6 +624,181 @@ const XPReader = () => {
                   </TabsContent>
                 )}
 
+                {/* Pollutants / Water Quality */}
+                {result.pollutants.length > 0 && (
+                  <TabsContent value="pollutants">
+                    <div className="space-y-4">
+                      {/* Pollutant definitions */}
+                      <Card>
+                        <CardHeader className="py-3">
+                          <CardTitle className="text-sm font-mono">Pollutant Definitions</CardTitle>
+                        </CardHeader>
+                        <CardContent className="py-2">
+                          <div className="overflow-x-auto border rounded-lg">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="bg-muted/50 border-b">
+                                  {['Name', 'Units', 'C-Rain', 'C-GW', 'C-RDII', 'C-Init', 'Kdecay', 'Co-Pollutant', 'Co-Frac'].map(h => (
+                                    <th key={h} className="px-3 py-2 text-left font-mono text-xs text-muted-foreground uppercase tracking-wider whitespace-nowrap">{h}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {result.pollutants.map((pol, i) => (
+                                  <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
+                                    <td className="px-3 py-1.5 font-mono text-xs text-primary font-medium">{pol.name}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs">{pol.units}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{f(pol.cRain)}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{f(pol.cGW)}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{f(pol.cRDII)}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{f(pol.cInit)}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{f(pol.decayCoeff, 4)}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs">{pol.coPollutant}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{f(pol.coFraction)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Land Uses */}
+                      {result.landuses.length > 0 && (
+                        <Card>
+                          <CardHeader className="py-3">
+                            <CardTitle className="text-sm font-mono">Land Uses</CardTitle>
+                          </CardHeader>
+                          <CardContent className="py-2">
+                            <div className="overflow-x-auto border rounded-lg">
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="bg-muted/50 border-b">
+                                    {['Name', 'Sweep Interval', 'Sweep Fraction', 'Sweep Avail'].map(h => (
+                                      <th key={h} className="px-3 py-2 text-left font-mono text-xs text-muted-foreground uppercase tracking-wider whitespace-nowrap">{h}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {result.landuses.map((lu, i) => (
+                                    <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
+                                      <td className="px-3 py-1.5 font-mono text-xs text-primary font-medium">{lu.name}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-right">{f(lu.sweepInterval)}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-right">{f(lu.sweepFraction)}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-right">{f(lu.sweepAvail)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {/* Buildup */}
+                      {result.buildups.length > 0 && (
+                        <Card>
+                          <CardHeader className="py-3">
+                            <CardTitle className="text-sm font-mono">Buildup Functions</CardTitle>
+                          </CardHeader>
+                          <CardContent className="py-2">
+                            <div className="overflow-x-auto border rounded-lg">
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="bg-muted/50 border-b">
+                                    {['Land Use', 'Pollutant', 'Function', 'C1', 'C2', 'C3', 'Per Unit'].map(h => (
+                                      <th key={h} className="px-3 py-2 text-left font-mono text-xs text-muted-foreground uppercase tracking-wider whitespace-nowrap">{h}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {result.buildups.map((bu, i) => (
+                                    <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
+                                      <td className="px-3 py-1.5 font-mono text-xs text-primary font-medium">{bu.landuse}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs">{bu.pollutant}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-warning">{bu.funcType}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-right">{f(bu.c1)}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-right">{f(bu.c2)}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-right">{f(bu.c3)}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs">{bu.perUnit}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {/* Washoff */}
+                      {result.washoffs.length > 0 && (
+                        <Card>
+                          <CardHeader className="py-3">
+                            <CardTitle className="text-sm font-mono">Washoff Functions</CardTitle>
+                          </CardHeader>
+                          <CardContent className="py-2">
+                            <div className="overflow-x-auto border rounded-lg">
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="bg-muted/50 border-b">
+                                    {['Land Use', 'Pollutant', 'Function', 'C1', 'C2', 'Sweep Eff', 'BMP %'].map(h => (
+                                      <th key={h} className="px-3 py-2 text-left font-mono text-xs text-muted-foreground uppercase tracking-wider whitespace-nowrap">{h}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {result.washoffs.map((wo, i) => (
+                                    <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
+                                      <td className="px-3 py-1.5 font-mono text-xs text-primary font-medium">{wo.landuse}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs">{wo.pollutant}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-warning">{wo.funcType}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-right">{f(wo.c1)}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-right">{f(wo.c2)}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-right">{f(wo.sweepEffic)}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-right">{f(wo.bmPct)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {/* Loadings */}
+                      {result.loadings.length > 0 && (
+                        <Card>
+                          <CardHeader className="py-3">
+                            <CardTitle className="text-sm font-mono">Initial Loadings</CardTitle>
+                          </CardHeader>
+                          <CardContent className="py-2">
+                            <div className="overflow-x-auto border rounded-lg">
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="bg-muted/50 border-b">
+                                    {['Subcatchment', 'Pollutant', 'Init. Buildup'].map(h => (
+                                      <th key={h} className="px-3 py-2 text-left font-mono text-xs text-muted-foreground uppercase tracking-wider whitespace-nowrap">{h}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {result.loadings.map((ld, i) => (
+                                    <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
+                                      <td className="px-3 py-1.5 font-mono text-xs">{ld.subcatchment}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-primary font-medium">{ld.pollutant}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-right">{f(ld.value)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  </TabsContent>
+                )}
+
                 <TabsContent value="jobctrl">
                   {Object.keys(result.jobControl).length === 0 ? (
                     <Card><CardContent className="py-4 text-sm text-muted-foreground">No job control data found.</CardContent></Card>
