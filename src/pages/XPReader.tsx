@@ -138,6 +138,9 @@ const XPReader = () => {
                     {result.title && <span className="text-sm text-muted-foreground">— {result.title}</span>}
                     <Badge className="bg-primary/10 text-primary border-primary/20">{result.nodes.length} nodes</Badge>
                     <Badge className="bg-success/10 text-success border-success/20">{result.links.length} links</Badge>
+                    {result.subcatchments.length > 0 && (
+                      <Badge className="bg-accent/10 text-accent-foreground border-accent/20">{result.subcatchments.length} subcatchments</Badge>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -147,6 +150,9 @@ const XPReader = () => {
                   <TabsTrigger value="summary" className="font-mono text-xs">Summary</TabsTrigger>
                   <TabsTrigger value="nodes" className="font-mono text-xs">Nodes <Badge variant="secondary" className="ml-1 text-xs">{result.nodes.length}</Badge></TabsTrigger>
                   <TabsTrigger value="links" className="font-mono text-xs">Links <Badge variant="secondary" className="ml-1 text-xs">{result.links.length}</Badge></TabsTrigger>
+                  {result.subcatchments.length > 0 && (
+                    <TabsTrigger value="subcatchments" className="font-mono text-xs">Subcatchments <Badge variant="secondary" className="ml-1 text-xs">{result.subcatchments.length}</Badge></TabsTrigger>
+                  )}
                   <TabsTrigger value="jobctrl" className="font-mono text-xs">Job Control</TabsTrigger>
                   <TabsTrigger value="map" className="font-mono text-xs">Network Map</TabsTrigger>
                   <TabsTrigger value="rawcards" className="font-mono text-xs">Raw Cards <Badge variant="secondary" className="ml-1 text-xs">{Object.keys(result.rawCards).length}</Badge></TabsTrigger>
