@@ -8,7 +8,8 @@ import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { XPParser } from "@/lib/xp-parser";
 import { buildINP } from "@/lib/swmm5-builder";
-import { Github, FileDown, Loader2, CheckCircle2, XCircle, FolderTree, AlertCircle, FolderOpen, Upload } from "lucide-react";
+import JSZip from "jszip";
+import { Github, FileDown, Loader2, CheckCircle2, XCircle, FolderTree, AlertCircle, FolderOpen, Upload, Archive } from "lucide-react";
 
 interface RepoFile {
   name: string;
