@@ -806,6 +806,91 @@ const XPReader = () => {
                   </TabsContent>
                 )}
 
+                {/* Controls */}
+                {result.controlRules.length > 0 && (
+                  <TabsContent value="controls">
+                    <div className="space-y-4">
+                      {result.controlRules.map((rule, i) => (
+                        <Card key={i}>
+                          <CardHeader className="py-3">
+                            <CardTitle className="text-sm font-mono flex items-center gap-2">
+                              <Badge variant="outline" className="font-mono">{rule.name}</Badge>
+                              {rule.priority > 1 && <Badge variant="secondary" className="text-xs">Priority {rule.priority}</Badge>}
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="py-2">
+                            <div className="font-mono text-sm space-y-1 bg-muted/30 p-3 rounded-lg border border-border">
+                              <div className="text-primary font-bold">RULE {rule.name}</div>
+                              {rule.conditions.map((cond, ci) => (
+                                <div key={ci} className="text-foreground">
+                                  <span className="text-warning font-bold">{ci === 0 ? 'IF' : rule.conditionLogic}</span>{' '}
+                                  <span className="text-muted-foreground">{cond.variable}</span>{' '}
+                                  <span className="text-primary">{cond.id}</span>{' '}
+                                  <span className="text-muted-foreground">{cond.attribute}</span>{' '}
+                                  <span className="text-destructive">{cond.relation}</span>{' '}
+                                  <span className="text-success">{cond.value}</span>
+                                </div>
+                              ))}
+                              {rule.actions.map((act, ai) => (
+                                <div key={ai} className="text-foreground">
+                                  <span className="text-warning font-bold">THEN</span>{' '}
+                                  <span className="text-primary">{act.link}</span>{' '}
+                                  <span className="text-muted-foreground">{act.attribute}</span>{' '}
+                                  <span className="text-foreground">=</span>{' '}
+                                  <span className="text-success">{act.value}</span>
+                                </div>
+                              ))}
+                              {rule.elseActions.map((act, ai) => (
+                                <div key={ai} className="text-foreground">
+                                  <span className="text-destructive font-bold">ELSE</span>{' '}
+                                  <span className="text-primary">{act.link}</span>{' '}
+                                  <span className="text-muted-foreground">{act.attribute}</span>{' '}
+                                  <span className="text-foreground">=</span>{' '}
+                                  <span className="text-success">{act.value}</span>
+                                </div>
+                              ))}
+                              {rule.priority > 1 && (
+                                <div className="text-muted-foreground">PRIORITY {rule.priority}</div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+
+                      <Card>
+                        <CardHeader className="py-3">
+                          <CardTitle className="text-sm font-mono">Control Rules Summary</CardTitle>
+                        </CardHeader>
+                        <CardContent className="py-2">
+                          <div className="overflow-x-auto border rounded-lg">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="bg-muted/50 border-b">
+                                  {['Rule', 'Conditions', 'Logic', 'Actions', 'Else Actions', 'Priority'].map(h => (
+                                    <th key={h} className="px-3 py-2 text-left font-mono text-xs text-muted-foreground uppercase tracking-wider whitespace-nowrap">{h}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {result.controlRules.map((rule, i) => (
+                                  <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
+                                    <td className="px-3 py-1.5 font-mono text-xs text-primary font-medium">{rule.name}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs">{rule.conditions.length}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-warning">{rule.conditionLogic}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs">{rule.actions.length}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs">{rule.elseActions.length}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{rule.priority}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </TabsContent>
+                )}
+
                 <TabsContent value="jobctrl">
                   {Object.keys(result.jobControl).length === 0 ? (
                     <Card><CardContent className="py-4 text-sm text-muted-foreground">No job control data found.</CardContent></Card>
