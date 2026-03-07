@@ -96,6 +96,20 @@ function downloadAll(results: ConversionResult[]) {
   });
 }
 
+async function downloadAsZip(results: ConversionResult[]) {
+  const zip = new JSZip();
+  results.filter(r => r.status === "done" && r.inp).forEach(r => {
+    zip.file(r.file.replace(/\.xp$/i, ".inp"), r.inp!);
+  });
+  const blob = await zip.generateAsync({ type: "blob" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "swmm5_converted.zip";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 type SourceMode = "github" | "folder";
 
 const GitHubBatch = () => {
@@ -353,6 +367,10 @@ const GitHubBatch = () => {
                       <Button size="sm" variant="outline" onClick={() => downloadAll(results)}>
                         <FileDown className="h-4 w-4 mr-2" />
                         Download {doneCount} .inp
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => downloadAsZip(results)}>
+                        <Archive className="h-4 w-4 mr-2" />
+                        Download ZIP
                       </Button>
                     )}
                   </div>
