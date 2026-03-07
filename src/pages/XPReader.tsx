@@ -560,7 +560,15 @@ const XPReader = () => {
                             <FileDown className="h-4 w-4 mr-2" /> Subcatchments CSV
                           </Button>
                         )}
-                        <Button variant="outline" onClick={() => download(JSON.stringify({ format: result.format, title: result.title, nodes: result.nodes, links: result.links, subcatchments: result.subcatchments, timeSeries: result.timeSeries, jobControl: result.jobControl }, null, 2), 'xpswmm_data.json', 'application/json')}>
+                        {result.pumpCurves.length > 0 && (
+                          <Button onClick={() => {
+                            const rows = result.pumpCurves.flatMap(pc => pc.points.map(pt => ({ curve: pc.name, type: pc.curveType, pumpType: pc.pumpTypeName, x: pt.x, y: pt.y })));
+                            download(buildCSV(rows as any), 'xpswmm_pump_curves.csv', 'text/csv');
+                          }}>
+                            <FileDown className="h-4 w-4 mr-2" /> Pump Curves CSV
+                          </Button>
+                        )}
+                        <Button variant="outline" onClick={() => download(JSON.stringify({ format: result.format, title: result.title, nodes: result.nodes, links: result.links, subcatchments: result.subcatchments, timeSeries: result.timeSeries, pumpCurves: result.pumpCurves, jobControl: result.jobControl }, null, 2), 'xpswmm_data.json', 'application/json')}>
                           Full JSON
                         </Button>
                         <Button variant="outline" onClick={() => download(buildINP(result), 'xpswmm_converted.inp', 'text/plain')}>
