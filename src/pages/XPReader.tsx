@@ -323,6 +323,78 @@ const XPReader = () => {
                   </TabsContent>
                 )}
 
+                {/* Time Series */}
+                {result.timeSeries.length > 0 && (
+                  <TabsContent value="timeseries">
+                    <div className="space-y-4">
+                      {result.timeSeries.map((ts, i) => {
+                        const nodeMatch = result.nodes.find(n => n.idx === ts.nodeIdx);
+                        const maxVal = Math.max(...ts.points.map(p => p.value));
+                        const maxTime = ts.points.length > 0 ? ts.points[ts.points.length - 1].time : 0;
+                        return (
+                          <Card key={i}>
+                            <CardHeader className="py-3">
+                              <div className="flex items-center gap-3 flex-wrap">
+                                <CardTitle className="text-sm font-mono">{ts.name}</CardTitle>
+                                <Badge variant="outline" className="font-mono text-xs">{ts.type}</Badge>
+                                <span className="text-xs text-muted-foreground font-mono">
+                                  Node: {nodeMatch?.name || `OI_${ts.nodeIdx}`} • {ts.points.length} points • Peak: {f(maxVal, 2)} • Duration: {f(maxTime, 1)} hrs
+                                </span>
+                              </div>
+                            </CardHeader>
+                            <CardContent className="py-2">
+                              {/* Simple ASCII sparkline bar chart */}
+                              <div className="border rounded-lg overflow-hidden mb-3">
+                                <svg viewBox={`0 0 600 120`} className="w-full" style={{ height: 120 }}>
+                                  <rect width={600} height={120} fill="hsl(var(--card))" />
+                                  {ts.points.map((pt, j) => {
+                                    const x = maxTime > 0 ? (pt.time / maxTime) * 580 + 10 : j * 5 + 10;
+                                    const h = maxVal > 0 ? (pt.value / maxVal) * 90 : 0;
+                                    const barW = Math.max(2, 560 / ts.points.length - 1);
+                                    return (
+                                      <rect key={j} x={x} y={110 - h} width={barW} height={h}
+                                        fill="hsl(var(--primary))" opacity={0.7}>
+                                        <title>t={f(pt.time, 2)}h, v={f(pt.value, 3)}</title>
+                                      </rect>
+                                    );
+                                  })}
+                                  <line x1={10} y1={110} x2={590} y2={110} stroke="hsl(var(--border))" strokeWidth={1} />
+                                  <text x={10} y={10} fill="hsl(var(--muted-foreground))" fontSize={9} fontFamily="monospace">Peak: {f(maxVal, 2)}</text>
+                                  <text x={540} y={10} fill="hsl(var(--muted-foreground))" fontSize={9} fontFamily="monospace" textAnchor="end">{f(maxTime, 1)}h</text>
+                                </svg>
+                              </div>
+                              {/* Data table (first 20 points) */}
+                              <div className="overflow-x-auto border rounded-lg max-h-48">
+                                <table className="w-full text-xs">
+                                  <thead>
+                                    <tr className="bg-muted/50 border-b">
+                                      <th className="px-3 py-1 text-left font-mono text-muted-foreground">#</th>
+                                      <th className="px-3 py-1 text-right font-mono text-muted-foreground">Time (hrs)</th>
+                                      <th className="px-3 py-1 text-right font-mono text-muted-foreground">Value</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {ts.points.slice(0, 20).map((pt, j) => (
+                                      <tr key={j} className="border-b border-border/50 hover:bg-muted/30">
+                                        <td className="px-3 py-0.5 font-mono text-muted-foreground">{j + 1}</td>
+                                        <td className="px-3 py-0.5 font-mono text-right">{f(pt.time, 4)}</td>
+                                        <td className="px-3 py-0.5 font-mono text-right text-primary">{f(pt.value, 4)}</td>
+                                      </tr>
+                                    ))}
+                                    {ts.points.length > 20 && (
+                                      <tr><td colSpan={3} className="px-3 py-1 font-mono text-xs text-muted-foreground text-center">... +{ts.points.length - 20} more points</td></tr>
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </TabsContent>
+                )}
+
                 {/* Job Control */}
                 <TabsContent value="jobctrl">
                   {Object.keys(result.jobControl).length === 0 ? (
