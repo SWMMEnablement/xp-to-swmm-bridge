@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { XPParser, type XPParseResult, type XPNode, type XPLink, DB, SHAPE_CODES, ROUTING_CODES } from "@/lib/xp-parser";
+import { XPParser, type XPParseResult, type XPNode, type XPLink, type XPSubcatchment, DB, SHAPE_CODES, ROUTING_CODES } from "@/lib/xp-parser";
 import { buildINP, buildCSV } from "@/lib/swmm5-builder";
 import { Upload, FileDown, Map, Table, Settings, FileText, Search } from "lucide-react";
 
@@ -26,6 +26,7 @@ const XPReader = () => {
   const [fileName, setFileName] = useState('');
   const [nodeFilter, setNodeFilter] = useState('');
   const [linkFilter, setLinkFilter] = useState('');
+  const [scFilter, setScFilter] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
 
   const handleFile = useCallback((file: File) => {
@@ -70,6 +71,15 @@ const XPReader = () => {
       l.usNode?.toLowerCase().includes(q) || l.dsNode?.toLowerCase().includes(q)
     );
   }, [result, linkFilter]);
+
+  const filteredSubcatchments = useMemo(() => {
+    if (!result) return [];
+    if (!scFilter) return result.subcatchments;
+    const q = scFilter.toLowerCase();
+    return result.subcatchments.filter(s => 
+      s.name.toLowerCase().includes(q) || s.outlet?.toLowerCase().includes(q)
+    );
+  }, [result, scFilter]);
 
   const stats = useMemo(() => {
     if (!result) return null;
