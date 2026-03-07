@@ -402,7 +402,97 @@ const XPReader = () => {
                   </TabsContent>
                 )}
 
-                {/* Job Control */}
+                {/* Pump Curves */}
+                {result.pumpCurves.length > 0 && (
+                  <TabsContent value="pumpcurves">
+                    <div className="space-y-4">
+                      {result.pumpCurves.map((pc, i) => {
+                        const pumpLink = result.links.find(l => l.idx === pc.linkIdx);
+                        const maxX = pc.points.length > 0 ? Math.max(...pc.points.map(p => p.x)) : 1;
+                        const maxY = pc.points.length > 0 ? Math.max(...pc.points.map(p => p.y)) : 1;
+                        const xLabel: Record<number, string> = { 1: 'Volume', 2: 'Depth', 3: 'Head', 4: 'Depth' };
+                        return (
+                          <Card key={i}>
+                            <CardHeader className="py-3">
+                              <div className="flex items-center gap-3 flex-wrap">
+                                <CardTitle className="text-sm font-mono">{pc.name}</CardTitle>
+                                <Badge variant="outline" className="font-mono text-xs">{pc.curveType}</Badge>
+                                <Badge variant="secondary" className="font-mono text-xs">{pc.pumpTypeName}</Badge>
+                                <span className="text-xs text-muted-foreground font-mono">
+                                  Link: {pumpLink?.name || `OI_${pc.linkIdx}`} • {pc.points.length} points
+                                  {pumpLink ? ` • ON: ${f(pumpLink.pon)} OFF: ${f(pumpLink.poff)}` : ''}
+                                </span>
+                              </div>
+                            </CardHeader>
+                            <CardContent className="py-2">
+                              {pc.points.length > 0 ? (
+                                <>
+                                  <div className="border rounded-lg overflow-hidden mb-3">
+                                    <svg viewBox="0 0 600 160" className="w-full" style={{ height: 160 }}>
+                                      <rect width={600} height={160} fill="hsl(var(--card))" />
+                                      {/* Axes */}
+                                      <line x1={50} y1={140} x2={580} y2={140} stroke="hsl(var(--border))" strokeWidth={1} />
+                                      <line x1={50} y1={10} x2={50} y2={140} stroke="hsl(var(--border))" strokeWidth={1} />
+                                      {/* Curve line */}
+                                      <polyline
+                                        fill="none"
+                                        stroke="hsl(var(--primary))"
+                                        strokeWidth={2}
+                                        points={pc.points.map(pt => {
+                                          const px = 50 + (maxX > 0 ? (pt.x / maxX) * 520 : 0);
+                                          const py = 140 - (maxY > 0 ? (pt.y / maxY) * 120 : 0);
+                                          return `${px},${py}`;
+                                        }).join(' ')}
+                                      />
+                                      {/* Points */}
+                                      {pc.points.map((pt, j) => {
+                                        const px = 50 + (maxX > 0 ? (pt.x / maxX) * 520 : 0);
+                                        const py = 140 - (maxY > 0 ? (pt.y / maxY) * 120 : 0);
+                                        return (
+                                          <circle key={j} cx={px} cy={py} r={3} fill="hsl(var(--primary))">
+                                            <title>{xLabel[pc.pumpType] || 'X'}={f(pt.x, 3)}, Flow={f(pt.y, 3)}</title>
+                                          </circle>
+                                        );
+                                      })}
+                                      {/* Labels */}
+                                      <text x={315} y={155} fill="hsl(var(--muted-foreground))" fontSize={9} fontFamily="monospace" textAnchor="middle">{xLabel[pc.pumpType] || 'X-Value'}</text>
+                                      <text x={10} y={80} fill="hsl(var(--muted-foreground))" fontSize={9} fontFamily="monospace" transform="rotate(-90 10 80)">Flow</text>
+                                      <text x={55} y={10} fill="hsl(var(--muted-foreground))" fontSize={8} fontFamily="monospace">{f(maxY, 2)}</text>
+                                      <text x={570} y={155} fill="hsl(var(--muted-foreground))" fontSize={8} fontFamily="monospace" textAnchor="end">{f(maxX, 2)}</text>
+                                    </svg>
+                                  </div>
+                                  <div className="overflow-x-auto border rounded-lg max-h-48">
+                                    <table className="w-full text-xs">
+                                      <thead>
+                                        <tr className="bg-muted/50 border-b">
+                                          <th className="px-3 py-1 text-left font-mono text-muted-foreground">#</th>
+                                          <th className="px-3 py-1 text-right font-mono text-muted-foreground">{xLabel[pc.pumpType] || 'X'}</th>
+                                          <th className="px-3 py-1 text-right font-mono text-muted-foreground">Flow</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {pc.points.map((pt, j) => (
+                                          <tr key={j} className="border-b border-border/50 hover:bg-muted/30">
+                                            <td className="px-3 py-0.5 font-mono text-muted-foreground">{j + 1}</td>
+                                            <td className="px-3 py-0.5 font-mono text-right">{f(pt.x, 4)}</td>
+                                            <td className="px-3 py-0.5 font-mono text-right text-primary">{f(pt.y, 4)}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </>
+                              ) : (
+                                <p className="text-sm text-muted-foreground">No curve data points found — pump references curve by name only.</p>
+                              )}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </TabsContent>
+                )}
+
                 <TabsContent value="jobctrl">
                   {Object.keys(result.jobControl).length === 0 ? (
                     <Card><CardContent className="py-4 text-sm text-muted-foreground">No job control data found.</CardContent></Card>
