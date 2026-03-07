@@ -488,6 +488,53 @@ export class XPParser {
     const a1d = gd('EXTR:A1', 0, 0);
     if (a1d) this.title = this.xf(a1d, DB.ALPHA).trim();
     this.extractJC(rec);
+
+    // Phase 9: Subcatchments from RNFF block
+    const scOIs = new Set([
+      ...ois('RNFF:R1'), ...ois('RNFF:R2'), ...ois('RNFF:R3'),
+      ...ois('RNFF:R4'), ...ois('RNFF:R5'),
+    ]);
+    for (const oi of [...scOIs].sort((a, b) => a - b)) {
+      const r1 = gd('RNFF:R1', oi, 0);
+      const r2 = gd('RNFF:R2', oi, 0);
+      const r3 = gd('RNFF:R3', oi, 0);
+      const r4 = gd('RNFF:R4', oi, 0);
+      const r5 = gd('RNFF:R5', oi, 0);
+
+      const name = this.xf(r1, DB.SNAME).trim() || `Sub_${oi}`;
+      const area = this.toF(this.xf(r1, DB.SAREA));
+      if (area <= 0 && !name) continue; // Skip empty subcatchments
+
+      const routeCode = this.toI(this.xf(r2, DB.SROUTE));
+      const routeMap: Record<number, string> = { 0: 'OUTLET', 1: 'IMPERVIOUS', 2: 'PERVIOUS' };
+
+      const sc: XPSubcatchment = {
+        idx: oi,
+        name,
+        area,
+        width: this.toF(this.xf(r1, DB.SWID)),
+        slope: this.toF(this.xf(r1, DB.SSLOPE)),
+        imperv: this.toF(this.xf(r1, DB.SIMPERV)),
+        outlet: this.xf(r1, DB.SOUTLET).trim() || '',
+        nImperv: this.toF(this.xf(r2, DB.SNIMP)) || 0.01,
+        nPerv: this.toF(this.xf(r2, DB.SNPERV)) || 0.1,
+        dsImperv: this.toF(this.xf(r2, DB.SDSIP)) || 0.05,
+        dsPerv: this.toF(this.xf(r2, DB.SDSPV)) || 0.05,
+        pctZero: this.toF(this.xf(r2, DB.SPZIMP)),
+        routeTo: routeMap[routeCode] || 'OUTLET',
+        f0: this.toF(this.xf(r3, DB.SF0)),
+        ff: this.toF(this.xf(r3, DB.SFF)),
+        fDecay: this.toF(this.xf(r3, DB.SFDECAY)),
+        fDry: this.toF(this.xf(r3, DB.SFDRY)),
+        fMaxVol: this.toF(this.xf(r3, DB.SFMAXVOL)),
+        curveNum: this.toF(this.xf(r4, DB.SCURVEN)),
+        conduc: this.toF(this.xf(r4, DB.SCONDUC)),
+        suctionHead: this.toF(this.xf(r4, DB.SHEAD)),
+        initMoisDef: this.toF(this.xf(r4, DB.SIMD)),
+        rainGage: this.xf(r5, DB.SRGNAME).trim() || '*',
+      };
+      this.subcatchments.push(sc);
+    }
   }
 
   private parseSWMM34(lines: string[]) {
