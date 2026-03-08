@@ -1424,6 +1424,7 @@ export class XPParser {
   }
 
 
+  private parseSWMM34(lines: string[]) {
     const nodeMap: Record<string, XPNode> = {};
     const linkList: XPLink[] = [];
     for (const raw of lines) {
