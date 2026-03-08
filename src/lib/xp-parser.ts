@@ -313,6 +313,54 @@ export interface XPControlRule {
   elseActions: XPControlAction[];
 }
 
+// LID (Low Impact Development) types
+export const LID_TYPE_CODES: Record<number, string> = {
+  0: 'BC',   // Bio-Retention Cell
+  1: 'RG',   // Rain Garden
+  2: 'GR',   // Green Roof
+  3: 'IT',   // Infiltration Trench
+  4: 'PP',   // Permeable Pavement
+  5: 'RB',   // Rain Barrel
+  6: 'RD',   // Rooftop Disconnection
+  7: 'VS',   // Vegetative Swale
+};
+
+export const LID_TYPE_NAMES: Record<string, string> = {
+  BC: 'Bio-Retention Cell',
+  RG: 'Rain Garden',
+  GR: 'Green Roof',
+  IT: 'Infiltration Trench',
+  PP: 'Permeable Pavement',
+  RB: 'Rain Barrel',
+  RD: 'Rooftop Disconnection',
+  VS: 'Vegetative Swale',
+};
+
+export interface XPLIDLayer {
+  layerType: string;  // SURFACE, SOIL, PAVEMENT, STORAGE, DRAIN, DRAINMAT
+  params: number[];   // Layer-specific parameters
+}
+
+export interface XPLIDControl {
+  name: string;
+  lidType: string;       // BC, RG, GR, IT, PP, RB, RD, VS
+  lidTypeName: string;   // Human-readable name
+  layers: XPLIDLayer[];
+}
+
+export interface XPLIDUsage {
+  subcatchment: string;
+  lidControl: string;    // Reference to LID control name
+  number: number;        // Number of replicate units
+  area: number;          // Area of each unit (ft2 or m2)
+  width: number;         // Width of outflow face (ft or m)
+  initSat: number;       // Initial saturation (%)
+  fromImperv: number;    // % of impervious area treated
+  toPerv: number;        // 1 = send outflow to pervious area, 0 = not
+  rptFile: string;       // Optional report file
+  drainTo: string;       // Optional subcatchment to receive drain flow
+}
+
 export interface XPParseResult {
   nodes: XPNode[];
   links: XPLink[];
@@ -321,6 +369,8 @@ export interface XPParseResult {
   pumpCurves: XPPumpCurve[];
   transects: XPTransect[];
   controlRules: XPControlRule[];
+  lidControls: XPLIDControl[];
+  lidUsages: XPLIDUsage[];
   pollutants: XPPollutant[];
   landuses: XPLanduse[];
   loadings: XPLoading[];
