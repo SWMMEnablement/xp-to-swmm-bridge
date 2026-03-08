@@ -400,6 +400,8 @@ export interface XPParseResult {
   controlRules: XPControlRule[];
   lidControls: XPLIDControl[];
   lidUsages: XPLIDUsage[];
+  rdiiHydrographs: XPRDIIUnitHydrograph[];
+  rdiiInflows: XPRDIIInflow[];
   pollutants: XPPollutant[];
   landuses: XPLanduse[];
   loadings: XPLoading[];
