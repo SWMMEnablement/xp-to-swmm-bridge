@@ -1,4 +1,4 @@
-import { type XPParseResult, type XPTimeSeries, type XPPumpCurve, type XPTransect, type XPPollutant, type XPLanduse, type XPBuildup, type XPWashoff, type XPLoading, type XPControlRule, type XPLIDControl, type XPLIDUsage, SHAPE_CODES } from './xp-parser';
+import { type XPParseResult, type XPTimeSeries, type XPPumpCurve, type XPTransect, type XPPollutant, type XPLanduse, type XPBuildup, type XPWashoff, type XPLoading, type XPControlRule, type XPLIDControl, type XPLIDUsage, type XPRDIIUnitHydrograph, type XPRDIIInflow, SHAPE_CODES } from './xp-parser';
 
 function f(v: number | undefined | null, d = 2): string {
   return v == null || v === 0 ? '0' : typeof v === 'number' ? v.toFixed(d) : String(v);
@@ -363,6 +363,29 @@ SKIP_STEADY_STATE    NO
     inp += `[LID_USAGE]\n;;Subcatchment    LID Process      Number  Area       Width      InitSat    FromImperv ToPerv     RptFile                  DrainTo\n;;-------------- ---------------- ------- ---------- ---------- ---------- ---------- ---------- ------------------------ ----------------\n`;
     lidUsages.forEach(u => {
       inp += `${pd(u.subcatchment, 16)} ${pd(u.lidControl, 16)} ${pd(String(u.number), 7)} ${pd(f(u.area), 10)} ${pd(f(u.width), 10)} ${pd(f(u.initSat), 10)} ${pd(f(u.fromImperv), 10)} ${pd(String(u.toPerv), 10)} ${pd(u.rptFile || '*', 24)} ${u.drainTo || ''}\n`;
+    });
+    inp += '\n';
+  }
+
+  // RDII Inflows
+  const rdiiInflows = p.rdiiInflows || [];
+  if (rdiiInflows.length) {
+    inp += `[RDII]\n;;Node           UHgroup          SewerArea\n;;-------------- ---------------- ----------\n`;
+    rdiiInflows.forEach(ri => {
+      inp += `${pd(ri.nodeName, 16)} ${pd(ri.uhGroupName, 16)} ${pd(f(ri.sewerArea), 10)}\n`;
+    });
+    inp += '\n';
+  }
+
+  // RDII Unit Hydrographs
+  const rdiiUH = p.rdiiHydrographs || [];
+  if (rdiiUH.length) {
+    inp += `[HYDROGRAPHS]\n;;Hydrograph      Rain Gage/Month  Response  R          T          K          Dmax       Drec       Dinit\n;;-------------- ---------------- --------- ---------- ---------- ---------- ---------- ---------- ----------\n`;
+    rdiiUH.forEach(uh => {
+      inp += `${pd(uh.name, 16)} ${pd(uh.rainGage, 16)}\n`;
+      inp += `${pd(uh.name, 16)} ${pd(uh.months, 16)} SHORT     ${pd(f(uh.r1, 4), 10)} ${pd(f(uh.t1, 4), 10)} ${pd(f(uh.k1, 4), 10)} ${pd(f(uh.iaMax, 4), 10)} ${pd(f(uh.iaRecovery, 4), 10)} ${pd(f(uh.iaInit, 4), 10)}\n`;
+      inp += `${pd(uh.name, 16)} ${pd(uh.months, 16)} MEDIUM    ${pd(f(uh.r2, 4), 10)} ${pd(f(uh.t2, 4), 10)} ${pd(f(uh.k2, 4), 10)}\n`;
+      inp += `${pd(uh.name, 16)} ${pd(uh.months, 16)} LONG      ${pd(f(uh.r3, 4), 10)} ${pd(f(uh.t3, 4), 10)} ${pd(f(uh.k3, 4), 10)}\n`;
     });
     inp += '\n';
   }

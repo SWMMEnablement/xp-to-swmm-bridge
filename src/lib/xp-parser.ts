@@ -361,6 +361,35 @@ export interface XPLIDUsage {
   drainTo: string;       // Optional subcatchment to receive drain flow
 }
 
+// RDII (Rainfall-Dependent Infiltration/Inflow) interfaces
+export interface XPRDIIUnitHydrograph {
+  name: string;          // Unit hydrograph group name
+  rainGage: string;      // Associated rain gage
+  months: string;        // Month range (ALL or specific)
+  // Short-term response triangle
+  r1: number;            // R fraction (volume ratio)
+  t1: number;            // T time-to-peak (hours)
+  k1: number;            // K recession ratio
+  // Medium-term response triangle
+  r2: number;
+  t2: number;
+  k2: number;
+  // Long-term response triangle
+  r3: number;
+  t3: number;
+  k3: number;
+  // Initial abstraction (IA) parameters
+  iaMax: number;         // Max IA depth (in or mm)
+  iaRecovery: number;    // IA recovery rate (in/hr or mm/hr)
+  iaInit: number;        // Initial IA depth (in or mm)
+}
+
+export interface XPRDIIInflow {
+  nodeName: string;      // Node receiving RDII inflow
+  uhGroupName: string;   // Unit hydrograph group name
+  sewerArea: number;     // Sewer-connected area (acres or hectares)
+}
+
 export interface XPParseResult {
   nodes: XPNode[];
   links: XPLink[];
@@ -371,6 +400,8 @@ export interface XPParseResult {
   controlRules: XPControlRule[];
   lidControls: XPLIDControl[];
   lidUsages: XPLIDUsage[];
+  rdiiHydrographs: XPRDIIUnitHydrograph[];
+  rdiiInflows: XPRDIIInflow[];
   pollutants: XPPollutant[];
   landuses: XPLanduse[];
   loadings: XPLoading[];
@@ -395,6 +426,8 @@ export class XPParser {
   controlRules: XPControlRule[] = [];
   lidControls: XPLIDControl[] = [];
   lidUsages: XPLIDUsage[] = [];
+  rdiiHydrographs: XPRDIIUnitHydrograph[] = [];
+  rdiiInflows: XPRDIIInflow[] = [];
   pollutants: XPPollutant[] = [];
   landuses: XPLanduse[] = [];
   loadings: XPLoading[] = [];
@@ -431,6 +464,7 @@ export class XPParser {
       timeSeries: this.timeSeries, pumpCurves: this.pumpCurves, transects: this.transects,
       controlRules: this.controlRules,
       lidControls: this.lidControls, lidUsages: this.lidUsages,
+      rdiiHydrographs: this.rdiiHydrographs, rdiiInflows: this.rdiiInflows,
       pollutants: this.pollutants, landuses: this.landuses, loadings: this.loadings,
       buildups: this.buildups, washoffs: this.washoffs,
       jobControl: this.jobControl, rawCards: this.rawCards,
@@ -1092,6 +1126,15 @@ export class XPParser {
     if (this.lidControls.length > 0) {
       this.warnings.push(`Extracted ${this.lidControls.length} LID control(s) and ${this.lidUsages.length} LID usage(s) — verify layer parameters against original model.`);
     }
+
+    // Phase 16: RDII (Rainfall-Dependent Infiltration/Inflow) from EXTR:RD and RNFF:UH cards
+    // RDII inflow assignments are identified by the JNRR flag on D1 cards
+    // Unit hydrograph RTK parameters may be on EXTR:RD1/RD2 or RNFF:UH1/UH2 cards
+    this.parseRDII(rec, gd, ois, nodeNames);
+
+    if (this.rdiiHydrographs.length > 0 || this.rdiiInflows.length > 0) {
+      this.warnings.push(`Extracted ${this.rdiiHydrographs.length} RDII unit hydrograph(s) and ${this.rdiiInflows.length} RDII inflow(s) — verify RTK parameters against original model.`);
+    }
   }
 
   private parseControlRulesFromCONF(rec: RecordMap) {
@@ -1421,6 +1464,123 @@ export class XPParser {
 
     // Also check for LID data in XPX format sections [LID_CONTROL] and [LID_USAGE]
     // These are handled in parseXPX if present
+  }
+
+  private parseRDII(
+    rec: RecordMap,
+    gd: (key: string, oi: number, ...preferSubs: number[]) => string,
+    ois: (key: string) => number[],
+    nodeNames: Record<number, string>
+  ) {
+    // Strategy 1: Look for explicit RDII unit hydrograph cards (EXTR:RD1, RNFF:UH1)
+    // RD1/UH1 format: name rainGage months R1 T1 K1 R2 T2 K2 R3 T3 K3 [IAmax IArecov IAinit]
+    const uhCardKeys = ['EXTR:RD1', 'RNFF:UH1', 'EXTR:UH1', 'RNFF:RD1'];
+    for (const cardKey of uhCardKeys) {
+      const uhData = rec[cardKey];
+      if (!uhData) continue;
+      for (const [oiStr, subs] of Object.entries(uhData)) {
+        const oi = parseInt(oiStr);
+        if (oi <= 0) continue;
+        for (const [, records] of Object.entries(subs)) {
+          for (const data of records) {
+            const parts = data.trim().split(/\s+/);
+            if (parts.length < 10) continue;
+            const name = parts[0] || `UH_${oi}`;
+            const rainGage = parts[1] || '*';
+            const months = parts[2] || 'ALL';
+            const r1 = parseFloat(parts[3]) || 0;
+            const t1 = parseFloat(parts[4]) || 0;
+            const k1 = parseFloat(parts[5]) || 0;
+            const r2 = parseFloat(parts[6]) || 0;
+            const t2 = parseFloat(parts[7]) || 0;
+            const k2 = parseFloat(parts[8]) || 0;
+            const r3 = parseFloat(parts[9]) || 0;
+            const t3 = parseFloat(parts[10]) || 0;
+            const k3 = parseFloat(parts[11]) || 0;
+            const iaMax = parseFloat(parts[12]) || 0;
+            const iaRecovery = parseFloat(parts[13]) || 0;
+            const iaInit = parseFloat(parts[14]) || 0;
+
+            if (!this.rdiiHydrographs.find(h => h.name === name && h.months === months)) {
+              this.rdiiHydrographs.push({
+                name, rainGage, months, r1, t1, k1, r2, t2, k2, r3, t3, k3,
+                iaMax, iaRecovery, iaInit,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // Strategy 2: Look for RDII inflow assignments (EXTR:RD2, RNFF:UH2)
+    // RD2/UH2 format: nodeName uhGroupName sewerArea
+    const inflowCardKeys = ['EXTR:RD2', 'RNFF:UH2', 'EXTR:UH2', 'RNFF:RD2'];
+    for (const cardKey of inflowCardKeys) {
+      const rdData = rec[cardKey];
+      if (!rdData) continue;
+      for (const [oiStr, subs] of Object.entries(rdData)) {
+        const oi = parseInt(oiStr);
+        if (oi <= 0) continue;
+        for (const [, records] of Object.entries(subs)) {
+          for (const data of records) {
+            const parts = data.trim().split(/\s+/);
+            if (parts.length < 2) continue;
+            const nodeName = parts[0] || nodeNames[oi] || `Node_${oi}`;
+            const uhGroupName = parts[1] || '';
+            const sewerArea = parseFloat(parts[2]) || 0;
+            if (uhGroupName) {
+              this.rdiiInflows.push({ nodeName, uhGroupName, sewerArea });
+            }
+          }
+        }
+      }
+    }
+
+    // Strategy 3: Infer RDII nodes from JNRR flag on D1 cards
+    // Nodes with JNRR=1 have RDII inflow — create default assignments if not already found
+    if (this.rdiiInflows.length === 0) {
+      for (const node of this.nodes) {
+        const d1 = gd('EXTR:D1', node.idx, 0);
+        const jnrr = d1 ? parseInt(d1.substring(49, 50).trim()) || 0 : 0;
+        if (jnrr > 0) {
+          // Check if there's an associated UH group from other card patterns
+          const rdNode = gd('EXTR:RD', node.idx, 0);
+          let uhName = '';
+          let sewerArea = 0;
+          if (rdNode) {
+            const rdParts = rdNode.trim().split(/\s+/);
+            uhName = rdParts[0] || `UH_${node.name}`;
+            sewerArea = parseFloat(rdParts[1]) || 0;
+          } else {
+            uhName = `UH_${node.name}`;
+          }
+          this.rdiiInflows.push({
+            nodeName: node.name,
+            uhGroupName: uhName,
+            sewerArea,
+          });
+        }
+      }
+    }
+
+    // Strategy 4: If we have inflows but no hydrograph definitions,
+    // create placeholder UH groups so the [HYDROGRAPHS] section is populated
+    const definedUHNames = new Set(this.rdiiHydrographs.map(h => h.name));
+    const referencedUHNames = new Set(this.rdiiInflows.map(i => i.uhGroupName));
+    for (const uhName of referencedUHNames) {
+      if (!definedUHNames.has(uhName)) {
+        // Create a default placeholder with typical RTK values
+        this.rdiiHydrographs.push({
+          name: uhName,
+          rainGage: '*',
+          months: 'ALL',
+          r1: 0.05, t1: 1.0, k1: 2.0,
+          r2: 0.04, t2: 3.0, k2: 3.0,
+          r3: 0.03, t3: 8.0, k3: 4.0,
+          iaMax: 0, iaRecovery: 0, iaInit: 0,
+        });
+      }
+    }
   }
 
 

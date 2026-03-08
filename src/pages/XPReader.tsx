@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { XPParser, type XPParseResult, type XPNode, type XPLink, type XPSubcatchment, type XPTimeSeries, type XPPumpCurve, type XPTransect, type XPPollutant, type XPControlRule, type XPLIDControl, type XPLIDUsage, DB, SHAPE_CODES, ROUTING_CODES, PUMP_CODES, LID_TYPE_NAMES } from "@/lib/xp-parser";
+import { XPParser, type XPParseResult, type XPNode, type XPLink, type XPSubcatchment, type XPTimeSeries, type XPPumpCurve, type XPTransect, type XPPollutant, type XPControlRule, type XPLIDControl, type XPLIDUsage, type XPRDIIUnitHydrograph, type XPRDIIInflow, DB, SHAPE_CODES, ROUTING_CODES, PUMP_CODES, LID_TYPE_NAMES } from "@/lib/xp-parser";
 import { buildINP, buildCSV } from "@/lib/swmm5-builder";
 import { Upload, FileDown, Map, Table, Settings, FileText, Search } from "lucide-react";
 
@@ -159,6 +159,9 @@ const XPReader = () => {
                     {result.lidControls.length > 0 && (
                       <Badge className="bg-success/10 text-success border-success/20">{result.lidControls.length} LID controls</Badge>
                     )}
+                    {(result.rdiiHydrographs.length > 0 || result.rdiiInflows.length > 0) && (
+                      <Badge className="bg-primary/10 text-primary border-primary/20">{result.rdiiInflows.length} RDII inflows</Badge>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -189,6 +192,9 @@ const XPReader = () => {
                   {result.lidControls.length > 0 && (
                     <TabsTrigger value="lid" className="font-mono text-xs">LID Controls <Badge variant="secondary" className="ml-1 text-xs">{result.lidControls.length}</Badge></TabsTrigger>
                   )}
+                  {(result.rdiiHydrographs.length > 0 || result.rdiiInflows.length > 0) && (
+                    <TabsTrigger value="rdii" className="font-mono text-xs">RDII <Badge variant="secondary" className="ml-1 text-xs">{result.rdiiInflows.length}</Badge></TabsTrigger>
+                  )}
                   <TabsTrigger value="jobctrl" className="font-mono text-xs">Job Control</TabsTrigger>
                   <TabsTrigger value="map" className="font-mono text-xs">Network Map</TabsTrigger>
                   <TabsTrigger value="rawcards" className="font-mono text-xs">Raw Cards <Badge variant="secondary" className="ml-1 text-xs">{Object.keys(result.rawCards).length}</Badge></TabsTrigger>
@@ -209,6 +215,8 @@ const XPReader = () => {
                       { label: 'Controls', value: result.controlRules.length, color: 'text-warning' },
                       { label: 'LID Controls', value: result.lidControls.length, color: 'text-success' },
                       { label: 'LID Usages', value: result.lidUsages.length, color: 'text-success' },
+                      { label: 'RDII Hydrographs', value: result.rdiiHydrographs.length, color: 'text-primary' },
+                      { label: 'RDII Inflows', value: result.rdiiInflows.length, color: 'text-primary' },
                       { label: 'Junctions', value: stats?.nt.Junction || 0, color: 'text-primary' },
                       { label: 'Outfalls', value: stats?.nt.Outfall || 0, color: 'text-warning' },
                       { label: 'Storage', value: stats?.nt.Storage || 0, color: 'text-primary' },
@@ -984,6 +992,85 @@ const XPReader = () => {
                   </TabsContent>
                 )}
 
+                {/* RDII */}
+                {(result.rdiiHydrographs.length > 0 || result.rdiiInflows.length > 0) && (
+                  <TabsContent value="rdii">
+                    <div className="space-y-4">
+                      {/* Unit Hydrographs */}
+                      <Card>
+                        <CardHeader className="py-3">
+                          <CardTitle className="text-sm font-mono">Unit Hydrographs (RTK Parameters)</CardTitle>
+                        </CardHeader>
+                        <CardContent className="py-2">
+                          <div className="overflow-x-auto border rounded-lg">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="bg-muted/50 border-b">
+                                  {['Name', 'Rain Gage', 'Months', 'R1', 'T1', 'K1', 'R2', 'T2', 'K2', 'R3', 'T3', 'K3', 'IA Max', 'IA Recov', 'IA Init'].map(h => (
+                                    <th key={h} className="px-3 py-2 text-left font-mono text-xs text-muted-foreground uppercase tracking-wider whitespace-nowrap">{h}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {result.rdiiHydrographs.map((uh, i) => (
+                                  <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
+                                    <td className="px-3 py-1.5 font-mono text-xs text-primary font-medium">{uh.name}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs">{uh.rainGage}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-warning">{uh.months}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{f(uh.r1, 4)}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{f(uh.t1, 2)}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{f(uh.k1, 2)}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{f(uh.r2, 4)}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{f(uh.t2, 2)}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{f(uh.k2, 2)}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{f(uh.r3, 4)}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{f(uh.t3, 2)}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{f(uh.k3, 2)}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{uh.iaMax > 0 ? f(uh.iaMax, 4) : ''}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{uh.iaRecovery > 0 ? f(uh.iaRecovery, 4) : ''}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{uh.iaInit > 0 ? f(uh.iaInit, 4) : ''}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* RDII Inflow Assignments */}
+                      {result.rdiiInflows.length > 0 && (
+                        <Card>
+                          <CardHeader className="py-3">
+                            <CardTitle className="text-sm font-mono">RDII Inflow Assignments</CardTitle>
+                          </CardHeader>
+                          <CardContent className="py-2">
+                            <div className="overflow-x-auto border rounded-lg">
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="bg-muted/50 border-b">
+                                    {['Node', 'UH Group', 'Sewer Area'].map(h => (
+                                      <th key={h} className="px-3 py-2 text-left font-mono text-xs text-muted-foreground uppercase tracking-wider whitespace-nowrap">{h}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {result.rdiiInflows.map((ri, i) => (
+                                    <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
+                                      <td className="px-3 py-1.5 font-mono text-xs text-primary font-medium">{ri.nodeName}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-warning">{ri.uhGroupName}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-right">{f(ri.sewerArea)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  </TabsContent>
+                )}
+
                 <TabsContent value="jobctrl">
                   {Object.keys(result.jobControl).length === 0 ? (
                     <Card><CardContent className="py-4 text-sm text-muted-foreground">No job control data found.</CardContent></Card>
@@ -1080,7 +1167,16 @@ const XPReader = () => {
                             <FileDown className="h-4 w-4 mr-2" /> LID Controls CSV
                           </Button>
                         )}
-                        <Button variant="outline" onClick={() => download(JSON.stringify({ format: result.format, title: result.title, nodes: result.nodes, links: result.links, subcatchments: result.subcatchments, timeSeries: result.timeSeries, pumpCurves: result.pumpCurves, transects: result.transects, controlRules: result.controlRules, lidControls: result.lidControls, lidUsages: result.lidUsages, pollutants: result.pollutants, landuses: result.landuses, buildups: result.buildups, washoffs: result.washoffs, loadings: result.loadings, jobControl: result.jobControl }, null, 2), 'xpswmm_data.json', 'application/json')}>
+                        {(result.rdiiHydrographs.length > 0 || result.rdiiInflows.length > 0) && (
+                          <Button onClick={() => {
+                            const uhRows = result.rdiiHydrographs.map(uh => ({ name: uh.name, rainGage: uh.rainGage, months: uh.months, R1: uh.r1, T1: uh.t1, K1: uh.k1, R2: uh.r2, T2: uh.t2, K2: uh.k2, R3: uh.r3, T3: uh.t3, K3: uh.k3, IAmax: uh.iaMax, IArecov: uh.iaRecovery, IAinit: uh.iaInit }));
+                            const inflowRows = result.rdiiInflows.map(ri => ({ node: ri.nodeName, uhGroup: ri.uhGroupName, sewerArea: ri.sewerArea }));
+                            download(buildCSV([...uhRows, ...inflowRows] as any), 'xpswmm_rdii.csv', 'text/csv');
+                          }}>
+                            <FileDown className="h-4 w-4 mr-2" /> RDII CSV
+                          </Button>
+                        )}
+                        <Button variant="outline" onClick={() => download(JSON.stringify({ format: result.format, title: result.title, nodes: result.nodes, links: result.links, subcatchments: result.subcatchments, timeSeries: result.timeSeries, pumpCurves: result.pumpCurves, transects: result.transects, controlRules: result.controlRules, lidControls: result.lidControls, lidUsages: result.lidUsages, rdiiHydrographs: result.rdiiHydrographs, rdiiInflows: result.rdiiInflows, pollutants: result.pollutants, landuses: result.landuses, buildups: result.buildups, washoffs: result.washoffs, loadings: result.loadings, jobControl: result.jobControl }, null, 2), 'xpswmm_data.json', 'application/json')}>
                           Full JSON
                         </Button>
                         <Button variant="outline" onClick={() => download(buildINP(result), 'xpswmm_converted.inp', 'text/plain')}>
