@@ -1082,6 +1082,16 @@ export class XPParser {
     if (this.controlRules.length > 0) {
       this.warnings.push(`Extracted ${this.controlRules.length} control rule(s) — verify thresholds and logic against original model.`);
     }
+
+    // Phase 15: LID (Low Impact Development) Controls from RNFF:L1/L2/L3/L4/L5/L6 cards
+    // XPSWMM stores LID definitions in the Runoff block using L-series cards
+    // L1: LID name and type, L2: Surface layer, L3: Soil layer, L4: Storage layer,
+    // L5: Drain layer, L6: Pavement/DrainMat layer
+    this.parseLIDControls(rec);
+
+    if (this.lidControls.length > 0) {
+      this.warnings.push(`Extracted ${this.lidControls.length} LID control(s) and ${this.lidUsages.length} LID usage(s) — verify layer parameters against original model.`);
+    }
   }
 
   private parseControlRulesFromCONF(rec: RecordMap) {
