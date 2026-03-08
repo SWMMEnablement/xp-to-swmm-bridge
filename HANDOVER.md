@@ -1,6 +1,6 @@
 # XPSWMM to SWMM5 Converter — Project Handover
 
-> **Version:** 2.0  
+> **Version:** 3.0  
 > **Date:** March 2026  
 > **Stack:** React 18 + TypeScript + Vite + Tailwind CSS + shadcn/ui  
 > **Live:** [xp-to-swmm-bridge.lovable.app](https://xp-to-swmm-bridge.lovable.app)
@@ -15,6 +15,7 @@
 4. [Core Modules](#4-core-modules)
    - [XP Parser](#41-xp-parser-srclibxp-parserts)
    - [SWMM5 Builder](#42-swmm5-builder-srclibswmm5-builderts)
+   - [XP Generator](#43-xp-generator-srclibxp-generatorts)
 5. [Pages & Features](#5-pages--features)
 6. [Data Flow](#6-data-flow)
 7. [XP File Format Reference](#7-xp-file-format-reference)
@@ -25,27 +26,31 @@
 12. [Transect / Irregular Cross-Section Support](#12-transect--irregular-cross-section-support)
 13. [Time Series Support](#13-time-series-support)
 14. [Subcatchment Support](#14-subcatchment-support)
-15. [Design System](#15-design-system)
-16. [Extending the Project](#16-extending-the-project)
-17. [Known Limitations](#17-known-limitations)
-18. [Deployment](#18-deployment)
-19. [Origins & Format Lineage](#19-origins--format-lineage)
+15. [Real-Time Control Rules Support](#15-real-time-control-rules-support)
+16. [LID (Low Impact Development) Support](#16-lid-low-impact-development-support)
+17. [Make .xp — Model Builder](#17-make-xp--model-builder)
+18. [Design System](#18-design-system)
+19. [Extending the Project](#19-extending-the-project)
+20. [Known Limitations](#20-known-limitations)
+21. [Deployment](#21-deployment)
+22. [Origins & Format Lineage](#22-origins--format-lineage)
 
 ---
 
 ## 1. Project Overview
 
-A **client-side** web application that converts XPSWMM proprietary `.xp` files into EPA SWMM5 `.inp` format. All parsing and conversion happens in the browser — no server required, no files uploaded.
+A **client-side** web application that converts XPSWMM proprietary `.xp` files into EPA SWMM5 `.inp` format — and now also generates `.xp` files from scratch. All parsing, conversion, and generation happens in the browser — no server required, no files uploaded.
 
 ### Key Capabilities
 
 | Feature | Description |
 |---|---|
 | **Single-file conversion** | Drop a `.xp` file → auto-downloads `.inp` |
-| **Card Reader** | Interactive inspector with 12+ tabs for nodes, links, subcatchments, time series, pump curves, transects, pollutants, job control, network map, raw cards, export |
+| **Card Reader** | Interactive inspector with 14+ tabs for nodes, links, subcatchments, time series, pump curves, transects, pollutants, controls, LID, job control, network map, raw cards, export |
 | **GitHub Batch** | Paste a public GitHub repo URL → scans for `.xp` files → batch convert |
 | **Local Folder Batch** | Select a local folder → pick files with checkboxes → batch convert |
 | **ZIP Download** | Download all converted `.inp` files as a single ZIP archive |
+| **Make .xp** | Form-based model builder — define nodes, links, subcatchments, controls → generate `.xp` files |
 | **Dark Mode** | Theme toggle persisted to localStorage |
 
 ### Conversion Coverage Matrix
@@ -62,49 +67,57 @@ A **client-side** web application that converts XPSWMM proprietary `.xp` files i
 | **Transects** | Irregular cross-sections (TRAN/C2/C3 cards) | ✅ Full |
 | **Water Quality** | Pollutants, land uses, buildup, washoff, loadings | ✅ Full |
 | **Job Control** | Units, routing, timestep, tolerances, damping | ✅ Full |
-| **Controls/Rules** | Real-time control rules | ❌ Not yet |
-| **LID Controls** | Low-impact development | ❌ Not yet |
+| **Controls/Rules** | Real-time control rules (CONF/CNTL + pump inference) | ✅ Full |
+| **LID Controls** | Bio-retention, rain garden, green roof, infiltration trench, permeable pavement, rain barrel, rooftop disconnection, vegetative swale | ✅ Full |
+| **XP Generation** | Create .xp files from scratch (nodes, links, subcatchments, controls) | ✅ Full |
 | **Groundwater** | GW flow equations | ❌ Not yet |
 | **Snow Pack** | Snow melt parameters | ❌ Not yet |
+| **RDII** | Rainfall-Dependent Infiltration/Inflow | ❌ Not yet |
 
 ---
 
 ## 2. Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                        Browser                                │
-│                                                               │
-│  ┌──────────┐    ┌───────────────┐    ┌───────────────────┐  │
-│  │ .xp file │───▶│   XPParser    │───▶│   XPParseResult   │  │
-│  │ (text)   │    │               │    │                   │  │
-│  └──────────┘    │  ┌──────────┐ │    │ • nodes[]         │  │
-│                  │  │ Native   │ │    │ • links[]         │  │
-│                  │  │ XP Cards │ │    │ • subcatchments[] │  │
-│                  │  ├──────────┤ │    │ • timeSeries[]    │  │
-│                  │  │ XPX      │ │    │ • pumpCurves[]    │  │
-│                  │  │ Exchange │ │    │ • transects[]     │  │
-│                  │  ├──────────┤ │    │ • pollutants[]    │  │
-│                  │  │ SWMM 3/4 │ │    │ • landuses[]      │  │
-│                  │  │ Legacy   │ │    │ • buildups[]      │  │
-│                  │  └──────────┘ │    │ • washoffs[]      │  │
-│                  └───────────────┘    │ • loadings[]      │  │
-│                                      │ • jobControl{}    │  │
-│                                      │ • rawCards{}      │  │
-│                                      └────────┬──────────┘  │
-│                                               │              │
-│                        ┌──────────────────────┤              │
-│                        │                      │              │
-│                   ┌────▼────┐           ┌─────▼─────┐       │
-│                   │buildINP │           │ Card      │       │
-│                   │         │           │ Reader UI │       │
-│                   └────┬────┘           └───────────┘       │
-│                        │                                     │
-│                   ┌────▼────┐                                │
-│                   │ .inp    │                                │
-│                   │ file    │                                │
-│                   └─────────┘                                │
-└──────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                           Browser                                │
+│                                                                  │
+│  ┌──────────┐    ┌───────────────┐    ┌───────────────────────┐ │
+│  │ .xp file │───▶│   XPParser    │───▶│    XPParseResult      │ │
+│  │ (text)   │    │               │    │                       │ │
+│  └──────────┘    │  ┌──────────┐ │    │ • nodes[]             │ │
+│                  │  │ Native   │ │    │ • links[]             │ │
+│                  │  │ XP Cards │ │    │ • subcatchments[]     │ │
+│                  │  ├──────────┤ │    │ • timeSeries[]        │ │
+│                  │  │ XPX      │ │    │ • pumpCurves[]        │ │
+│                  │  │ Exchange │ │    │ • transects[]         │ │
+│                  │  ├──────────┤ │    │ • controlRules[]      │ │
+│                  │  │ SWMM 3/4 │ │    │ • lidControls[]       │ │
+│                  │  │ Legacy   │ │    │ • lidUsages[]         │ │
+│                  │  └──────────┘ │    │ • pollutants[]        │ │
+│                  └───────────────┘    │ • landuses[]          │ │
+│                                      │ • buildups[]          │ │
+│                                      │ • washoffs[]          │ │
+│                                      │ • loadings[]          │ │
+│                                      │ • jobControl{}        │ │
+│                                      │ • rawCards{}          │ │
+│                                      └────────┬──────────────┘ │
+│                                               │                 │
+│                        ┌──────────────────────┤                 │
+│                        │                      │                 │
+│                   ┌────▼────┐           ┌─────▼─────┐          │
+│                   │buildINP │           │ Card      │          │
+│                   │         │           │ Reader UI │          │
+│                   └────┬────┘           └───────────┘          │
+│                        │                                        │
+│                   ┌────▼────┐    ┌──────────────────┐          │
+│                   │ .inp    │    │  XP Generator    │          │
+│                   │ file    │    │  (Make .xp page) │          │
+│                   └─────────┘    │  MakeModel →     │          │
+│                                  │  generateXP() →  │          │
+│                                  │  .xp file        │          │
+│                                  └──────────────────┘          │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 **Zero backend dependencies.** The GitHub batch feature uses GitHub's public REST API (`api.github.com`) directly from the browser.
@@ -116,26 +129,39 @@ A **client-side** web application that converts XPSWMM proprietary `.xp` files i
 ```
 src/
 ├── lib/
-│   ├── xp-parser.ts          # XP file parser (~1000 lines)
+│   ├── xp-parser.ts          # XP file parser (~1500 lines)
 │   │                          #   - 3 format detectors (XPX, Native XP, SWMM34)
-│   │                          #   - 13 parsing phases
+│   │                          #   - 15 parsing phases
 │   │                          #   - DB field definition table (100+ fields)
 │   │                          #   - Exports: XPParser class, all interfaces, code maps
-│   ├── swmm5-builder.ts      # SWMM5 .inp generator (~330 lines)
-│   │                          #   - buildINP(): generates 20+ SWMM5 sections
+│   │                          #   - RTC rule parsing (CONF/CNTL + pump inference)
+│   │                          #   - LID control parsing (L1-L7 cards)
+│   ├── swmm5-builder.ts      # SWMM5 .inp generator (~390 lines)
+│   │                          #   - buildINP(): generates 25+ SWMM5 sections
 │   │                          #   - buildCSV(): generic CSV exporter
+│   │                          #   - Includes [CONTROLS], [LID_CONTROLS], [LID_USAGE]
+│   ├── xp-generator.ts       # XP file generator (~280 lines)
+│   │                          #   - generateXP(): MakeModel → .xp card format
+│   │                          #   - createDefaultModel(): empty starter model
+│   │                          #   - Generates EXTR, RNFF, CONF group cards
 │   └── utils.ts              # Tailwind merge utility
 ├── pages/
 │   ├── Index.tsx              # Landing page with drag-drop converter
-│   ├── XPReader.tsx           # Card Reader with 12+ tabbed inspector (~980 lines)
+│   ├── XPReader.tsx           # Card Reader with 14+ tabbed inspector (~1170 lines)
 │   │                          #   - NetworkMap SVG component (inline)
 │   │                          #   - Per-tab filtering, chart visualizations
 │   │                          #   - Multi-format export (CSV, JSON, INP)
+│   │                          #   - Controls tab with syntax-highlighted rules
+│   │                          #   - LID Controls tab with layer detail tables
+│   ├── MakeXP.tsx             # Model builder page (~500 lines)
+│   │                          #   - Form-based definition of nodes, links, subcatchments, controls
+│   │                          #   - Live .xp preview with copy/download
+│   │                          #   - Context-aware fields (conduit/pump/orifice/weir)
 │   ├── GitHubBatch.tsx        # GitHub + local folder batch converter
 │   ├── Documentation.tsx      # Full documentation with handover tab
 │   └── NotFound.tsx           # 404 page
 ├── components/
-│   ├── Header.tsx             # Nav bar + dark mode toggle
+│   ├── Header.tsx             # Nav bar + dark mode toggle (5 nav links)
 │   ├── FileUpload.tsx         # Drag-drop file upload
 │   ├── ConversionOptions.tsx  # Conversion settings panel
 │   ├── ResultsPanel.tsx       # Conversion results display
@@ -146,7 +172,7 @@ src/
 │   ├── use-mobile.tsx         # Mobile viewport detection
 │   └── use-toast.ts           # Toast notification hook
 ├── index.css                  # Design tokens (HSL colors, gradients, dark mode)
-├── App.tsx                    # Routes: /, /reader, /github-batch, /docs
+├── App.tsx                    # Routes: /, /reader, /github-batch, /make-xp, /docs
 └── main.tsx                   # Entry point
 ```
 
@@ -161,7 +187,7 @@ The parser handles three input formats:
 | Format | Detection | Method |
 |---|---|---|
 | **XPX** (exchange) | Contains `[NODE]` or `[LINK]` | `parseXPX()` — key=value pairs |
-| **Native XP** (card) | Group codes like `EXTR`, `ZZZN`, `RNFF`, `QUAL`, `TRAN` | `parseNativeXP()` — 80-col fixed-width |
+| **Native XP** (card) | Group codes like `EXTR`, `ZZZN`, `RNFF`, `QUAL`, `TRAN`, `CONF` | `parseNativeXP()` — 80-col fixed-width |
 | **SWMM 3/4** | Card IDs like `D1`, `C1` | `parseSWMM34()` — legacy format |
 
 #### DB Field Definitions
@@ -198,6 +224,7 @@ These definitions are derived from the original C source (`Swmfield.c` / `Swmfie
 | `DELTA` | J3 | 11 | 8 | real | Head loss delta |
 | `ZTOP` | E1 | 13 | 7 | real | Crown elevation |
 | `ASTORE` | E1 | 21 | 7 | real | Storage area |
+| `CNTLS` | E1 | 70 | 1 | coded | Control flag (node has controls) |
 | `NKLASS` | C1 | 13 | 2 | coded | Shape code (1–20) |
 | `DEEP` | C1 | 25 | 7 | real | Conduit depth/diameter |
 | `WIDE` | C1 | 34 | 7 | real | Conduit width |
@@ -237,6 +264,10 @@ These definitions are derived from the original C source (`Swmfield.c` / `Swmfie
 | `FUDGE` | BB2 | 15 | 8 | real | Head tolerance |
 | `KINE` | BB2 | 79 | 1 | coded | Routing method |
 | `ISMTH` | BB2 | 51 | 8 | int | Smoothing factor |
+| `CNTLJD` | B0 | 64 | 1 | flag | Junction depth control flag |
+| `CNTLMC` | B0 | 66 | 1 | flag | Multi-conduit control flag |
+| `CNTLR` | B0 | 70 | 1 | flag | Rule control flag |
+| `CNTLT` | B0 | 68 | 1 | flag | Time control flag |
 
 **RNFF Group — Subcatchments:**
 
@@ -275,12 +306,15 @@ interface XPParseResult {
   timeSeries: XPTimeSeries[];    // Inflow hydrographs
   pumpCurves: XPPumpCurve[];     // Pump performance curves
   transects: XPTransect[];       // Irregular cross-sections
+  controlRules: XPControlRule[]; // Real-time control rules
+  lidControls: XPLIDControl[];   // LID control definitions
+  lidUsages: XPLIDUsage[];       // LID-to-subcatchment assignments
   pollutants: XPPollutant[];     // Water quality pollutant definitions
   landuses: XPLanduse[];         // Land use categories
   loadings: XPLoading[];         // Initial pollutant loadings
   buildups: XPBuildup[];         // Pollutant buildup functions
   washoffs: XPWashoff[];         // Pollutant washoff functions
-  jobControl: Record<string, string>;  // A1, B1, B2, BB1, BB2 cards
+  jobControl: Record<string, string>;  // A1, B0, B1, B2, BB1, BB2 cards
   rawCards: Record<string, { data: string }[]>;  // All raw card data
   format: string;                // 'XP_CARD', 'XPX', 'SWMM34'
   title: string;
@@ -305,6 +339,32 @@ interface XPParseResult {
 | **11** | Extract pump performance curves | `EXTR:H1A`, `H2`, `H3` |
 | **12** | Extract transects for irregular cross-sections | `TRAN:*`, `EXTR:C2`, `C3` |
 | **13** | Extract pollutants, land uses, buildup/washoff, loadings | `QUAL:Q1`–`Q3`, `RNFF:R6` |
+| **14** | Extract real-time control rules from CONF/CNTL cards + pump inference | `CONF:C1`–`C3`, `CNTL:*`, `EXTR:CNTL`, pump on/off depths |
+| **15** | Extract LID control definitions and subcatchment usage assignments | `RNFF:L1`–`L7` |
+
+#### Phase 14 Detail: Real-Time Control Rule Extraction
+
+Three extraction methods, applied in order:
+
+1. **Explicit CONF rules** (`parseControlRulesFromCONF`): Reads `CONF:C1` (rule name/priority), `CONF:C2` (conditions with variable/element/attribute/relation/value), `CONF:C3` (actions with link/attribute/value, optional ELSE clause). Node/link OIs resolved to names.
+
+2. **CNTL card rules** (`parseControlRulesFromCNTL`): Reads `CNTL:*` or `EXTR:CNTL` cards in structured format: `RuleName SensorNode Attribute Threshold ActionLink Action`.
+
+3. **Inferred pump rules** (`inferControlRulesFromPumps`): If no explicit rules found, generates rules from pump ON/OFF depth thresholds. Each pump with `PON > 0` produces a `Pump_<name>_Control` rule (IF NODE depth > PON THEN pump STATUS = ON) and optionally a `Pump_<name>_Off` rule (IF NODE depth < POFF THEN pump STATUS = OFF).
+
+#### Phase 15 Detail: LID Control Extraction
+
+Reads `RNFF` group L-series cards:
+
+| Card | Content |
+|---|---|
+| `RNFF:L1` | LID name + type code (0=BC, 1=RG, 2=GR, 3=IT, 4=PP, 5=RB, 6=RD, 7=VS) |
+| `RNFF:L2` | Surface layer params (berm height, veg volume, roughness, slope, swale side slope) |
+| `RNFF:L3` | Soil layer params (thickness, porosity, field capacity, wilt point, Ksat, Kslope, suction) |
+| `RNFF:L4` | Storage layer params (height, void ratio, Ksat, clog factor) |
+| `RNFF:L5` | Drain layer params (flow coeff, flow exponent, offset height, open/closed levels) |
+| `RNFF:L6` | Pavement layer (for PP) or DrainMat layer (for GR) |
+| `RNFF:L7` | LID usage: subcatchment OI → lid name, number of units, area, width, init saturation, fromImperv, toPerv |
 
 #### Key Lookup Codes
 
@@ -315,6 +375,7 @@ interface XPParseResult {
 | `ROUTING_CODES` | 0=Std Dynamic Wave, 1=Always Non-linear, 2=Never Non-linear, 3=Kinematic Wave, 4=Diffusion Wave |
 | `WEIR_CODES` | 1=Transverse, 2=Side-flow, 3=V-Notch, 4=Broad-crested |
 | `PUMP_CODES` | 1=Type 1 (vol), 2=Type 2 (depth), 3=Type 3 (head), 4=Type 4 (depth-flow) |
+| `LID_TYPE_CODES` | 0=BC (Bio-Retention), 1=RG (Rain Garden), 2=GR (Green Roof), 3=IT (Infiltration Trench), 4=PP (Permeable Pavement), 5=RB (Rain Barrel), 6=RD (Rooftop Disconnection), 7=VS (Vegetative Swale) |
 
 ### 4.2 SWMM5 Builder (`src/lib/swmm5-builder.ts`)
 
@@ -349,6 +410,9 @@ Generates a standards-compliant SWMM5 `.inp` file from `XPParseResult`.
 | `[BUILDUP]` | `result.buildups` | POW/EXP/SAT/EXT function with coefficients |
 | `[WASHOFF]` | `result.washoffs` | EXP/RC/EMC function with coefficients |
 | `[LOADINGS]` | `result.loadings` | Initial pollutant mass per subcatchment |
+| `[CONTROLS]` | `result.controlRules` | RULE/IF/THEN/ELSE/PRIORITY syntax |
+| `[LID_CONTROLS]` | `result.lidControls` | LID type + layer parameters (SURFACE, SOIL, STORAGE, DRAIN, PAVEMENT, DRAINMAT) |
+| `[LID_USAGE]` | `result.lidUsages` | Subcatchment → LID assignment with units, area, width, saturation, routing |
 | `[REPORT]` | Default | ALL for subcatchments, nodes, links |
 
 #### Shape Code Mapping (NKLASS → SWMM5)
@@ -362,6 +426,56 @@ Generates a standards-compliant SWMM5 `.inp` file from `XPParseResult`.
  6 → TRAPEZOIDAL       14 → ARCH
  7 → POWER             16 → PARABOLIC
  8 → IRREGULAR
+```
+
+### 4.3 XP Generator (`src/lib/xp-generator.ts`)
+
+Generates `.xp` card-format files from a user-defined `MakeModel` structure. This is the reverse of the parser — it takes structured model data and produces 80-column fixed-width card images.
+
+#### MakeModel Structure
+
+```typescript
+interface MakeModel {
+  jobControl: MakeJobControl;   // Title, metric, routing, timestep, solver
+  nodes: MakeNode[];            // Junction, Outfall, Storage
+  links: MakeLink[];            // Conduit, Pump, Orifice, Weir
+  subcatchments: MakeSubcatchment[];  // Area, width, slope, infiltration
+  controls: MakeControl[];      // IF/THEN/ELSE rules
+}
+```
+
+#### Generated Card Groups
+
+| Group | Cards | Content |
+|---|---|---|
+| `EXTR` | `A1` | Title line |
+| `EXTR` | `B1` | Time step |
+| `EXTR` | `B2` | Metric flag |
+| `EXTR` | `BB2` | Solver settings (max trials, head tolerance, routing method) |
+| `ZZZN` | `NODE` | Node name definitions |
+| `EXTR` | `SP1N` | Node X/Y coordinates, outfall flag, name |
+| `EXTR` | `D1` | Node ground elevation, initial depth |
+| `EXTR` | `E1` | Node crown elevation (ZTOP), storage area |
+| `EXTR` | `J3` | Outfall type and fixed stage |
+| `EXTR` | `SPDN` | Link upstream/downstream node names |
+| `EXTR` | `SPDV` | Link type flags (conduit/pump/orifice/weir) |
+| `EXTR` | `C1` | Conduit shape, depth, width, length, inverts, roughness |
+| `EXTR` | `C6` | Number of barrels |
+| `EXTR` | `H1A` | Pump type, on/off depths, curve name |
+| `EXTR` | `F1` | Orifice shape, coefficient, diameter, offset |
+| `EXTR` | `G1` | Weir type, crest, top, length, coefficient |
+| `RNFF` | `R1` | Subcatchment name, area, width, slope, imperv, outlet |
+| `RNFF` | `R2` | Manning's N, depression storage |
+| `RNFF` | `R3` | Horton infiltration (f0, ff, decay) |
+| `CONF` | `C1` | Control rule name and priority |
+| `CONF` | `C2` | Control condition (sensor node, attribute, relation, threshold) |
+| `CONF` | `C3` | Control action (link, status, value) with optional ELSE |
+
+#### Card Line Format
+
+Each line is built using the `card()` function:
+```
+Positions: 1-4=Group, 5-8=Sub, 9-12=Card, 13-16=Seq, 17-20=OI, 21-22=spacing, 23-80=Data
 ```
 
 ---
@@ -380,7 +494,7 @@ Interactive file inspector with dynamic tabs (shown based on data availability):
 
 | Tab | Content | Condition |
 |---|---|---|
-| **Summary** | Count cards for all element types, conduit shape distribution | Always |
+| **Summary** | Count cards for all element types (18 stats), conduit shape distribution | Always |
 | **Nodes** | Filterable table: name, type, X, Y, elevation, depth, Q, outfall, storage | Always |
 | **Links** | Filterable table: name, type, shape, US/DS nodes, dimensions, roughness, slope, barrels | Always |
 | **Subcatchments** | Filterable table: area, width, imperv, slope, infiltration, rain gage | When subcatchments > 0 |
@@ -388,10 +502,12 @@ Interactive file inspector with dynamic tabs (shown based on data availability):
 | **Pump Curves** | SVG line chart + data table per curve; type badge, ON/OFF levels | When pumpCurves > 0 |
 | **Transects** | SVG cross-section profile with fill, bank markers, station-elev table | When transects > 0 |
 | **Pollutants** | Pollutant defs, land uses, buildup/washoff functions, loadings tables | When pollutants > 0 |
-| **Job Control** | Parameters grouped by card (A1, B1, B2, BB1, BB2) | Always |
+| **Controls** | Syntax-highlighted RULE/IF/THEN/ELSE display per rule + summary table | When controlRules > 0 |
+| **LID Controls** | Per-LID layer parameter table + usage assignment table | When lidControls > 0 |
+| **Job Control** | Parameters grouped by card (A1, B0, B1, B2, BB1, BB2) | Always |
 | **Network Map** | SVG visualization with nodes colored by type and links as edges | Always |
 | **Raw Cards** | All parsed cards with 80-column ruler | Always |
-| **Export** | CSV (nodes, links, subcatchments, pump curves, transects, pollutants), JSON, INP; DbFieldDef reference | Always |
+| **Export** | CSV (nodes, links, subcatchments, pump curves, transects, pollutants, LID controls), JSON, INP; DbFieldDef reference | Always |
 
 ### 5.3 GitHub Batch Converter (`/github-batch`)
 
@@ -414,13 +530,35 @@ Two source modes:
 - Conversion summary table with totals (nodes, links, file sizes)
 - Download individual `.inp` files or all as ZIP (via JSZip)
 
-### 5.4 Documentation (`/docs`)
+### 5.4 Make .xp Model Builder (`/make-xp`)
+
+Form-based interface for creating SWMM models from scratch:
+
+| Tab | Content |
+|---|---|
+| **Settings** | Model title, routing method (Dynamic/Kinematic/Diffusion Wave), time step, max trials, head tolerance, metric/US toggle |
+| **Nodes** | Add/edit/delete junctions, outfalls, storage nodes — each with name, type, X/Y coords, elevation, max depth, init depth; outfalls have type selector (Free/Fixed/Tidal); storage nodes have area field |
+| **Links** | Add/edit/delete conduits (shape/depth/width/length/roughness/inverts), pumps (type 1-4, on/off depths, curve name), orifices (shape/coeff/diameter/offset), weirs (type/crest/top/length/coeff) — all with node-aware from/to dropdowns |
+| **Subcatchments** | Add/edit/delete with area, width, slope, % imperv, outlet node selector, Manning's N, and Horton infiltration (f₀, f∞, decay) |
+| **Controls** | Rule builder with sensor node selector, attribute (DEPTH/HEAD/FLOW/VOLUME), relation (>/</=/>=/<= ), threshold value, action link selector, THEN/ELSE action (ON/OFF) — with live syntax-highlighted RULE preview |
+| **Preview** | Generated .xp file output in monospace font with copy-to-clipboard and download buttons |
+
+**Key UX details:**
+- Node/link dropdowns auto-populate from defined elements
+- Link type selector dynamically shows relevant fields (conduit fields for conduits, pump fields for pumps, etc.)
+- Stats dashboard shows element counts
+- Form validation via required field defaults
+- Download generates `<title>.xp` filename
+
+### 5.5 Documentation (`/docs`)
 
 Five tabs: Supported Elements, Element Mapping, Limitations, Process, Handover.
 
 ---
 
 ## 6. Data Flow
+
+### Conversion Flow (XP → INP)
 
 ```
 Input File (text)
@@ -448,23 +586,56 @@ XPParser.parse(text)
     │
     ├── Phase 12: Extract XPTransect[] from TRAN/C2/C3 cards
     │
-    └── Phase 13: Extract pollutants/landuses/buildups/washoffs/loadings
+    ├── Phase 13: Extract pollutants/landuses/buildups/washoffs/loadings
+    │
+    ├── Phase 14: Extract controlRules from CONF/CNTL + infer from pumps
+    │
+    └── Phase 15: Extract lidControls + lidUsages from RNFF:L1-L7
     │
     ▼
 XPParseResult { nodes, links, subcatchments, timeSeries,
-                pumpCurves, transects, pollutants, landuses,
+                pumpCurves, transects, controlRules,
+                lidControls, lidUsages, pollutants, landuses,
                 buildups, washoffs, loadings, jobControl, rawCards }
     │
     ├──────────────────────────┐
     │                          │
     ▼                          ▼
-buildINP(result)         Card Reader UI (12+ tabs)
+buildINP(result)         Card Reader UI (14+ tabs)
     │                     - SVG charts/maps
     ▼                     - Filterable tables
 SWMM5 .inp text          - Multi-format export
     │
     ▼
 Download / ZIP / Display
+```
+
+### Generation Flow (Form → XP)
+
+```
+MakeXP Page (React state)
+    │
+    ├── MakeModel {
+    │     jobControl, nodes[], links[],
+    │     subcatchments[], controls[]
+    │   }
+    │
+    ▼
+generateXP(model)
+    │
+    ├── Generate EXTR group cards (A1, B1, B2, BB2)
+    ├── Generate ZZZN:NODE cards
+    ├── Generate EXTR:SP1N, D1, E1, J3 cards (nodes)
+    ├── Generate EXTR:SPDN, SPDV cards (link topology)
+    ├── Generate EXTR:C1/C6, H1A, F1, G1 cards (link params)
+    ├── Generate RNFF:R1/R2/R3 cards (subcatchments)
+    └── Generate CONF:C1/C2/C3 cards (controls)
+    │
+    ▼
+.xp file text (80-col card format)
+    │
+    ▼
+Download / Copy / Preview
 ```
 
 ---
@@ -474,12 +645,12 @@ Download / ZIP / Display
 ### Native XP Card Format (80-column fixed-width)
 
 ```
-Columns:  1-4    Group code (EXTR, ZZZN, ZZZE, RNFF, QUAL, TRAN, etc.)
+Columns:  1-4    Group code (EXTR, ZZZN, ZZZE, RNFF, QUAL, TRAN, CONF, etc.)
           5-8    Sub-group number
-          9-12   Card type (SP1N, D1, C1, R1, Q1, etc.)
-         13-16   (reserved)
+          9-12   Card type (SP1N, D1, C1, R1, Q1, L1, C1, etc.)
+         13-16   Sequence number
          17-20   Object Index (OI)
-         21-24   (reserved)
+         21-24   (reserved/spacing)
          25-80   Data fields (positions defined by DB)
 ```
 
@@ -490,11 +661,12 @@ Columns:  1-4    Group code (EXTR, ZZZN, ZZZE, RNFF, QUAL, TRAN, etc.)
 | `EXTR` | Hydraulic network (Extran/Transport block) |
 | `ZZZN` | Node topology definitions |
 | `ZZZE` | Edge topology definitions |
-| `RNFF` | Runoff block (subcatchments) |
+| `RNFF` | Runoff block (subcatchments + LID controls) |
 | `QUAL` | Water quality (pollutants, buildup/washoff) |
 | `TRAN` | Transect/cross-section geometry |
+| `CONF` | Control rule definitions |
+| `CNTL` | Alternative control card format |
 | `SWMM` | SWMM configuration |
-| `CONF` | Configuration/settings |
 | `ZXPX` | XPX format markers |
 
 ### Key Card Types by Group
@@ -508,7 +680,7 @@ Columns:  1-4    Group code (EXTR, ZZZN, ZZZE, RNFF, QUAL, TRAN, etc.)
 | `D2` | Time series header (type, pair count, scale factors) |
 | `D3` | Time series continuation data |
 | `J3` | Outfall type (KO), head loss delta |
-| `E1` | Crown elevation (ZTOP), storage area (ASTORE) |
+| `E1` | Crown elevation (ZTOP), storage area (ASTORE), control flag (CNTLS) |
 | `SPDN` | Link name, upstream node name, downstream node name |
 | `SPDV` | Multi-conduit flags (conduit/pump/orifice/weir enables) |
 | `C1` | Conduit shape (NKLASS), depth, width, length, inverts, roughness |
@@ -523,7 +695,7 @@ Columns:  1-4    Group code (EXTR, ZZZN, ZZZE, RNFF, QUAL, TRAN, etc.)
 | `H3` | Additional pump curve data |
 | `A1` | Title line |
 | `A1B` | Subtitle line |
-| `B0` | Control flags |
+| `B0` | Control flags (junction depth, multi-conduit, rule, time) |
 | `B1` | Time step (DELT), output intervals |
 | `B2` | Units (METRIC), junction parameters |
 | `BB1` | Min/max Froude numbers |
@@ -539,6 +711,13 @@ Columns:  1-4    Group code (EXTR, ZZZN, ZZZE, RNFF, QUAL, TRAN, etc.)
 | `R4` | Green-Ampt / SCS (curve number, conductivity, suction head, moisture deficit) |
 | `R5` | Rain gage name, snow flag |
 | `R6` | Subcatchment-level water quality parameters |
+| `L1` | LID control name and type code |
+| `L2` | LID surface layer parameters |
+| `L3` | LID soil layer parameters |
+| `L4` | LID storage layer parameters |
+| `L5` | LID drain layer parameters |
+| `L6` | LID pavement/drainmat layer parameters |
+| `L7` | LID usage assignments (subcatchment → LID control) |
 
 **QUAL Group:**
 
@@ -547,6 +726,14 @@ Columns:  1-4    Group code (EXTR, ZZZN, ZZZE, RNFF, QUAL, TRAN, etc.)
 | `Q1` | Pollutant definitions (name, units, concentrations, decay) |
 | `Q2` | Buildup/washoff parameters (land use, coefficients, function type) |
 | `Q3` | Initial pollutant loadings per subcatchment |
+
+**CONF Group:**
+
+| Card | Contains |
+|---|---|
+| `C1` | Control rule name and priority |
+| `C2` | Rule conditions (variable type, element ID, attribute, relation, value, AND/OR) |
+| `C3` | Rule actions (link ID, attribute, value, optional ELSE clause) |
 
 ### ZZZN/ZZZE Records
 
@@ -637,6 +824,30 @@ PC_P1            Pump2      0.0000     0.0000
 PC_P1                       5.0000     10.0000
 ;
 
+[CONTROLS]
+RULE Pump_P1_Control
+IF NODE WetWell DEPTH > 3.0000
+THEN P1 STATUS = ON
+
+RULE Pump_P1_Off
+IF NODE WetWell DEPTH < 1.0000
+THEN P1 STATUS = OFF
+PRIORITY 2
+
+[LID_CONTROLS]
+;;Name           Type/Layer   Par1       Par2       Par3       Par4       Par5
+;;-------------- ------------ ---------- ---------- ---------- ---------- ----------
+BioCell          BC
+BioCell          SURFACE      6.0000     0.0000     0.0000     0.5000     5.0000
+BioCell          SOIL         12.000     0.5000     0.2000     0.1000     0.5000
+BioCell          STORAGE      12.000     0.7500     0.5000     0.0000
+BioCell          DRAIN        0.0000     0.5000     6.0000     6.0000
+
+[LID_USAGE]
+;;Subcatchment    LID Process      Number  Area       Width      InitSat    FromImperv ToPerv
+;;-------------- ---------------- ------- ---------- ---------- ---------- ---------- ----------
+Sub1             BioCell          1       500.00     25.00      0          50.00      0
+
 [TRANSECTS]
 NC  0.0350  0.0350  0.0350
 X1  XS_Channel       10      20.00     80.00     0.0     0.0     0.0     0.0     0.0
@@ -726,6 +937,19 @@ Otherwise                     → Conduit
 | `f0 > 0` | Horton | f0, ff, fDecay, fDry, fMaxVol |
 | `conduc > 0` (no f0) | Green-Ampt | suctionHead, conduc, initMoisDef |
 | `curveNum > 0` (no f0/conduc) | SCS Curve Number | curveNum, conduc, fDry |
+
+### LID Type Mapping
+
+| Code | Short | SWMM5 Type | Layers |
+|---|---|---|---|
+| 0 | `BC` | Bio-Retention Cell | Surface, Soil, Storage, Drain |
+| 1 | `RG` | Rain Garden | Surface, Soil, Storage |
+| 2 | `GR` | Green Roof | Surface, Soil, DrainMat |
+| 3 | `IT` | Infiltration Trench | Surface, Storage, Drain |
+| 4 | `PP` | Permeable Pavement | Surface, Pavement, Soil, Storage, Drain |
+| 5 | `RB` | Rain Barrel | Storage, Drain |
+| 6 | `RD` | Rooftop Disconnection | Surface |
+| 7 | `VS` | Vegetative Swale | Surface |
 
 ---
 
@@ -992,7 +1216,215 @@ Generates three sections:
 
 ---
 
-## 15. Design System
+## 15. Real-Time Control Rules Support
+
+### Interfaces
+
+```typescript
+interface XPControlCondition {
+  variable: string;       // 'NODE' or 'LINK'
+  id: string;             // Element name (resolved from OI)
+  attribute: string;      // 'DEPTH', 'HEAD', 'FLOW', 'VOLUME', 'STATUS', 'SETTING'
+  relation: string;       // '>', '<', '=', '>=', '<=', '<>'
+  value: string;          // Threshold value or status string
+}
+
+interface XPControlAction {
+  link: string;           // Link name (pump, orifice, weir)
+  attribute: string;      // 'STATUS' or 'SETTING'
+  value: string;          // 'ON', 'OFF', or numeric setting value
+}
+
+interface XPControlRule {
+  name: string;           // Rule name (from CONF:C1 or generated)
+  priority: number;       // Rule priority (higher = evaluated first)
+  conditions: XPControlCondition[];
+  conditionLogic: string; // 'AND' or 'OR' between conditions
+  actions: XPControlAction[];
+  elseActions: XPControlAction[];
+}
+```
+
+### Three-Tier Extraction Strategy
+
+**Tier 1 — Explicit CONF rules** (`parseControlRulesFromCONF`):
+- `CONF:C1`: Rule name and priority per OI
+- `CONF:C2`: Conditions — each record has `variable_type element_id attribute relation value [AND/OR]`
+- `CONF:C3`: Actions — each record has `link_id attribute value [ELSE link_id attribute value]`
+- Node/link OIs resolved to names via internal maps
+
+**Tier 2 — CNTL card rules** (`parseControlRulesFromCNTL`):
+- Scans keys matching `CNTL:*` or `EXTR:CNTL`
+- Structured format: `RuleName SensorNode Attribute Threshold ActionLink Action`
+- Generates one rule per record with single condition and action
+
+**Tier 3 — Pump inference** (`inferControlRulesFromPumps`):
+- Only runs if Tiers 1+2 found zero rules
+- For each pump with `PON > 0`: generates `Pump_<name>_Control` (IF depth > PON → ON)
+- If `POFF > 0`: also generates `Pump_<name>_Off` (IF depth < POFF → OFF) with priority 2
+
+### SWMM5 Output
+
+```ini
+[CONTROLS]
+RULE Pump_P1_Control
+IF NODE WetWell DEPTH > 3.0000
+THEN P1 STATUS = ON
+
+RULE Pump_P1_Off
+IF NODE WetWell DEPTH < 1.0000
+THEN P1 STATUS = OFF
+PRIORITY 2
+```
+
+Rules with multiple conditions use the `conditionLogic` (AND/OR). Rules with `elseActions` generate ELSE clauses. Priority is only emitted when > 1.
+
+### UI Display
+
+- Syntax-highlighted rule card per rule: `RULE` (blue), `IF`/`THEN` (orange), `ELSE` (red), element names (blue), values (green)
+- Summary table with columns: Rule, Conditions, Logic, Actions, Else Actions, Priority
+
+---
+
+## 16. LID (Low Impact Development) Support
+
+### Interfaces
+
+```typescript
+interface XPLIDLayer {
+  layerType: string;  // 'SURFACE', 'SOIL', 'PAVEMENT', 'STORAGE', 'DRAIN', 'DRAINMAT'
+  params: number[];   // Layer-specific parameters (varies by layer type)
+}
+
+interface XPLIDControl {
+  name: string;        // LID control name
+  lidType: string;     // 'BC', 'RG', 'GR', 'IT', 'PP', 'RB', 'RD', 'VS'
+  lidTypeName: string; // Human-readable: 'Bio-Retention Cell', etc.
+  layers: XPLIDLayer[];
+}
+
+interface XPLIDUsage {
+  subcatchment: string;  // Subcatchment name
+  lidControl: string;    // Reference to LID control name
+  number: number;        // Number of replicate units
+  area: number;          // Area of each unit (ft² or m²)
+  width: number;         // Width of outflow face
+  initSat: number;       // Initial saturation (%)
+  fromImperv: number;    // % of impervious area treated
+  toPerv: number;        // 1 = send outflow to pervious area
+  rptFile: string;       // Optional report file
+  drainTo: string;       // Optional drain-to subcatchment
+}
+```
+
+### Layer Parameter Details
+
+| Layer | Parameters (in order) |
+|---|---|
+| SURFACE | Berm height, vegetation volume fraction, surface roughness, surface slope, swale side slope |
+| SOIL | Thickness, porosity, field capacity, wilting point, Ksat, Ksat slope, suction head |
+| PAVEMENT | Thickness, void ratio, impervious surface fraction, permeability, clogging factor |
+| STORAGE | Height, void ratio, seepage rate (Ksat), clogging factor |
+| DRAIN | Flow coefficient, flow exponent, offset height, open level, closed level |
+| DRAINMAT | Thickness, void fraction, roughness |
+
+### Parsing
+
+- `RNFF:L1`: LID name + integer type code → mapped via `LID_TYPE_CODES`
+- `RNFF:L2`–`L6`: Layer parameters parsed as space-separated floats
+- Layer type for L6 is context-dependent: `PAVEMENT` for Permeable Pavement, `DRAINMAT` for Green Roof
+- `RNFF:L7`: Usage assignments — subcatchment OI resolved to name, plus allocation parameters
+
+### SWMM5 Output
+
+```ini
+[LID_CONTROLS]
+;;Name           Type/Layer   Par1       Par2       Par3       Par4       Par5
+BioCell          BC
+BioCell          SURFACE      6.0000     0.0000     0.0000     0.5000     5.0000
+BioCell          SOIL         12.000     0.5000     0.2000     0.1000     0.5000
+BioCell          STORAGE      12.000     0.7500     0.5000     0.0000
+BioCell          DRAIN        0.0000     0.5000     6.0000     6.0000
+
+[LID_USAGE]
+;;Subcatchment    LID Process      Number  Area       Width      InitSat    FromImperv ToPerv
+Sub1             BioCell          1       500.00     25.00      0          50.00      0
+```
+
+### UI Display
+
+- Per-LID card with name badge, type badge (e.g., "Bio-Retention Cell" in green), and type code
+- Layer parameter table showing all layers with up to 7 parameter columns
+- LID Usage assignment table: subcatchment, LID control, #units, area, width, init sat, fromImperv, toPerv
+- Export: LID Controls CSV (flattened: name, type, layer, p1-p7)
+
+---
+
+## 17. Make .xp — Model Builder
+
+### Overview
+
+The Make .xp page (`/make-xp`, `src/pages/MakeXP.tsx`) provides a form-based interface for creating XPSWMM model files from scratch. It uses `src/lib/xp-generator.ts` to produce valid 80-column card format output.
+
+### State Management
+
+```typescript
+// All model state in a single React useState
+const [model, setModel] = useState<MakeModel>(createDefaultModel);
+
+// Immutable updates via updateModel helper
+const updateModel = (updater: (m: MakeModel) => MakeModel) => {
+  setModel(prev => updater(prev));
+};
+```
+
+Each element has a unique `id` (generated via `uid()` counter) for React key stability.
+
+### Node Types and Fields
+
+| Node Type | Specific Fields |
+|---|---|
+| Junction | name, x, y, elevation, maxDepth, initDepth |
+| Outfall | + outfallType (Free/Fixed/Tidal), fixedStage |
+| Storage | + storageArea |
+
+### Link Types and Fields
+
+| Link Type | Specific Fields |
+|---|---|
+| Conduit | shape (SHAPE_CODES), depth, width, length, roughness, usInvert, dsInvert, barrels |
+| Pump | pumpType (PUMP_CODES 1-4), pumpOnDepth, pumpOffDepth, pumpCurveName |
+| Orifice | orificeShape (Side/Circular), orificeCoeff, orificeDiam, orificeOffset |
+| Weir | weirType (WEIR_CODES 1-4), weirCrest, weirTop, weirLength, weirCoeff |
+
+### Context-Aware UI
+
+- Link From/To dropdowns only show defined node names
+- Subcatchment Outlet dropdown only shows defined node names
+- Control Sensor Node / Action Link dropdowns auto-populate
+- "Add Link" disabled until ≥1 node exists
+- "Add Control" disabled until ≥1 node and ≥1 link exist
+- Link type selector dynamically shows/hides field groups (conduit vs pump vs orifice vs weir)
+
+### Generated Output
+
+The `generateXP()` function produces standard card format:
+- Comment header with title and timestamp
+- EXTR group: A1 (title), B1 (timestep), B2 (metric), BB2 (solver)
+- ZZZN:NODE cards for node names
+- EXTR cards: SP1N (coords), D1 (elevation), E1 (crown/storage), J3 (outfall)
+- EXTR cards: SPDN (link names), SPDV (type flags)
+- EXTR cards: C1/C6 (conduits), H1A (pumps), F1 (orifices), G1 (weirs)
+- RNFF cards: R1 (subcatchment properties), R2 (surface), R3 (infiltration)
+- CONF cards: C1 (rule name), C2 (condition), C3 (action)
+
+### Round-Trip Compatibility
+
+Generated `.xp` files can be loaded back into the Card Reader for verification. The generator uses the same field positions defined in the `DB` constant, ensuring the parser can read what the generator writes.
+
+---
+
+## 18. Design System
 
 ### CSS Variables (HSL, in `index.css`)
 
@@ -1024,9 +1456,9 @@ Dark mode overrides in `.dark` class. Theme persisted via `localStorage('xp-them
 | Token | Usage |
 |---|---|
 | `text-primary` | Node names, link names, active data values |
-| `text-success` | Link counts, transect badges |
-| `text-warning` | Type labels, outfall counts, function type badges |
-| `text-destructive` | Error states, pollutant badges |
+| `text-success` | Link counts, transect badges, LID badges |
+| `text-warning` | Type labels, outfall counts, function type badges, control badges |
+| `text-destructive` | Error states, pollutant badges, delete buttons |
 | `text-muted-foreground` | Labels, column headers, secondary info |
 | `bg-muted/50` | Table header backgrounds |
 | `bg-primary/10` | Badge backgrounds |
@@ -1034,16 +1466,16 @@ Dark mode overrides in `.dark` class. Theme persisted via `localStorage('xp-them
 ### Font Strategy
 
 - **UI text:** System font stack via Tailwind defaults
-- **Data/code:** `font-mono` (monospace) for ALL table data, card dumps, field names, badges
+- **Data/code:** `font-mono` (monospace) for ALL table data, card dumps, field names, badges, rule syntax
 - **Sizing:** `text-xs` for table cells, `text-sm` for descriptions, `text-2xl` for summary counts
 
 ### Component Library
 
-40+ shadcn/ui components including: Accordion, Alert, Badge, Button, Card, Checkbox, Dialog, Dropdown, Input, Label, Select, Tabs, Table, Tooltip, Toast, etc.
+40+ shadcn/ui components including: Accordion, Alert, Badge, Button, Card, Checkbox, Dialog, Dropdown, Input, Label, Select, Switch, Tabs, Table, Tooltip, Toast, etc.
 
 ---
 
-## 16. Extending the Project
+## 19. Extending the Project
 
 ### Adding a new XP card field
 
@@ -1063,16 +1495,17 @@ Dark mode overrides in `.dark` class. Theme persisted via `localStorage('xp-them
 3. Format rows using `pd()` (padEnd) and `f()` (number format) helpers
 4. Add after existing sections, before `[REPORT]`
 
-### Adding a new data type (e.g., Controls, LID)
+### Adding a new data type (e.g., Groundwater, RDII)
 
-1. Create interface in `xp-parser.ts` (e.g., `XPControl`)
+1. Create interface in `xp-parser.ts` (e.g., `XPGroundwater`)
 2. Add array to `XPParser` class and `XPParseResult` interface
-3. Add parsing phase in `parseNativeXP()` 
+3. Add parsing phase in `parseNativeXP()` (Phase 16+)
 4. Add SWMM5 generation in `buildINP()`
 5. Add tab in `XPReader.tsx` (conditional on data.length > 0)
 6. Add CSV export button in Export tab
 7. Include in JSON export
-8. Add summary count card
+8. Add summary count card and badge in file info bar
+9. (Optional) Add to `xp-generator.ts` for Make .xp support
 
 ### Adding a new file format
 
@@ -1089,9 +1522,17 @@ Dark mode overrides in `.dark` class. Theme persisted via `localStorage('xp-them
 4. Add Badge in file info bar
 5. Add summary count in Summary tab grid
 
+### Adding Make .xp support for new elements
+
+1. Add interface to `xp-generator.ts` (e.g., `MakeLID`)
+2. Add to `MakeModel` interface
+3. Add card generation in `generateXP()` using `card()` helper
+4. Add form tab in `MakeXP.tsx` with add/edit/delete UI
+5. Add stats card to dashboard
+
 ---
 
-## 17. Known Limitations
+## 20. Known Limitations
 
 | Area | Status | Notes |
 |---|---|---|
@@ -1100,20 +1541,24 @@ Dark mode overrides in `.dark` class. Theme persisted via `localStorage('xp-them
 | **Pump Curves** | ✅ | Types 1–4 from H2/H3 cards — `[CURVES]` section generated |
 | **Transects** | ✅ | Station-elevation from TRAN/C2/C3 — HEC-2 `[TRANSECTS]` format |
 | **Pollutants** | ✅ | Definitions, land uses, buildup/washoff, loadings from QUAL/RNFF |
-| **Controls/Rules** | ❌ | Real-time control rules not parsed or mapped |
-| **LID Controls** | ❌ | Low-impact development not supported |
+| **Controls/Rules** | ✅ | CONF/CNTL extraction + pump depth inference — `[CONTROLS]` generated |
+| **LID Controls** | ✅ | 8 LID types with 6 layer types — `[LID_CONTROLS]` + `[LID_USAGE]` generated |
+| **XP Generation** | ✅ | Make .xp page generates valid card-format files with round-trip support |
 | **Groundwater** | ❌ | GW flow equations not extracted |
 | **Snow Pack** | ❌ | Snow melt parameters not converted |
+| **RDII** | ❌ | Rainfall-Dependent Infiltration/Inflow not extracted |
+| **Aquifers** | ❌ | Aquifer definitions not parsed |
 | **Rain Gages** | ⚠️ | Rain gage names referenced but gage definitions not generated |
 | **Multi-conduit** | ⚠️ | Only primary conduit (grpno 0/1) exported; dashlinks partially supported |
 | **Coordinate transforms** | ⚠️ | Raw database coordinates used; no PointPlaneToUser transformation |
 | **RTF wrapper** | ⚠️ | Basic RTF stripping; complex RTF may leave artifacts |
 | **GitHub API** | ⚠️ | 60 requests/hour unauthenticated; max 10 subdirectories scanned |
 | **Bank stations** | ⚠️ | Auto-detected at 20%/80% width — may not match original model |
+| **Make .xp round-trip** | ⚠️ | Generated files are structurally valid but may not include all XPSWMM-specific metadata needed for full model compatibility |
 
 ---
 
-## 18. Deployment
+## 21. Deployment
 
 ### Dependencies
 
@@ -1152,12 +1597,13 @@ No environment variables or API keys needed. The GitHub batch feature uses the p
 | `/` | Index | Landing page with drag-drop converter |
 | `/reader` | XPReader | Interactive card reader / file inspector |
 | `/github-batch` | GitHubBatch | GitHub + local folder batch converter |
+| `/make-xp` | MakeXP | Form-based model builder for generating .xp files |
 | `/docs` | Documentation | Full documentation |
 | `*` | NotFound | 404 page |
 
 ---
 
-## 19. Origins & Format Lineage
+## 22. Origins & Format Lineage
 
 ### The Architect of the .xp Format
 
