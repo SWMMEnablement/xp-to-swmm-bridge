@@ -8,10 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, FileDown, Eye, Copy, Layers } from "lucide-react";
+import { Plus, Trash2, FileDown, Eye, Copy, Layers, Map } from "lucide-react";
 import { generateXP, createDefaultModel, type MakeModel, type MakeNode, type MakeLink, type MakeSubcatchment, type MakeControl } from "@/lib/xp-generator";
 import { TEMPLATES } from "@/lib/xp-templates";
 import { SHAPE_CODES, PUMP_CODES, WEIR_CODES } from "@/lib/xp-parser";
+import { MakeNetworkMap } from "@/components/MakeNetworkMap";
 
 function download(content: string, filename: string) {
   const blob = new Blob([content], { type: 'text/plain' });
@@ -169,6 +170,8 @@ const MakeXP = () => {
               <TabsTrigger value="links" className="font-mono text-xs">Links <Badge variant="secondary" className="ml-1 text-xs">{model.links.length}</Badge></TabsTrigger>
               <TabsTrigger value="subcatchments" className="font-mono text-xs">Subcatchments <Badge variant="secondary" className="ml-1 text-xs">{model.subcatchments.length}</Badge></TabsTrigger>
               <TabsTrigger value="controls" className="font-mono text-xs">Controls <Badge variant="secondary" className="ml-1 text-xs">{model.controls.length}</Badge></TabsTrigger>
+              <TabsTrigger value="controls" className="font-mono text-xs">Controls <Badge variant="secondary" className="ml-1 text-xs">{model.controls.length}</Badge></TabsTrigger>
+              <TabsTrigger value="map" className="font-mono text-xs"><Map className="h-3 w-3 mr-1" />Map</TabsTrigger>
               <TabsTrigger value="preview" className="font-mono text-xs">Preview</TabsTrigger>
             </TabsList>
 
@@ -683,6 +686,11 @@ const MakeXP = () => {
                   </Card>
                 ))}
               </div>
+            </TabsContent>
+
+            {/* Network Map */}
+            <TabsContent value="map">
+              <MakeNetworkMap nodes={model.nodes} links={model.links} subcatchments={model.subcatchments} />
             </TabsContent>
 
             {/* Preview */}
