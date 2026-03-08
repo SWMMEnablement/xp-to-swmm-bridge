@@ -361,6 +361,35 @@ export interface XPLIDUsage {
   drainTo: string;       // Optional subcatchment to receive drain flow
 }
 
+// RDII (Rainfall-Dependent Infiltration/Inflow) interfaces
+export interface XPRDIIUnitHydrograph {
+  name: string;          // Unit hydrograph group name
+  rainGage: string;      // Associated rain gage
+  months: string;        // Month range (ALL or specific)
+  // Short-term response triangle
+  r1: number;            // R fraction (volume ratio)
+  t1: number;            // T time-to-peak (hours)
+  k1: number;            // K recession ratio
+  // Medium-term response triangle
+  r2: number;
+  t2: number;
+  k2: number;
+  // Long-term response triangle
+  r3: number;
+  t3: number;
+  k3: number;
+  // Initial abstraction (IA) parameters
+  iaMax: number;         // Max IA depth (in or mm)
+  iaRecovery: number;    // IA recovery rate (in/hr or mm/hr)
+  iaInit: number;        // Initial IA depth (in or mm)
+}
+
+export interface XPRDIIInflow {
+  nodeName: string;      // Node receiving RDII inflow
+  uhGroupName: string;   // Unit hydrograph group name
+  sewerArea: number;     // Sewer-connected area (acres or hectares)
+}
+
 export interface XPParseResult {
   nodes: XPNode[];
   links: XPLink[];
