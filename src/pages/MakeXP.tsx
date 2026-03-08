@@ -8,10 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, FileDown, Eye, Copy, Layers } from "lucide-react";
+import { Plus, Trash2, FileDown, Eye, Copy, Layers, Map } from "lucide-react";
 import { generateXP, createDefaultModel, type MakeModel, type MakeNode, type MakeLink, type MakeSubcatchment, type MakeControl } from "@/lib/xp-generator";
 import { TEMPLATES } from "@/lib/xp-templates";
 import { SHAPE_CODES, PUMP_CODES, WEIR_CODES } from "@/lib/xp-parser";
+import { MakeNetworkMap } from "@/components/MakeNetworkMap";
 
 function download(content: string, filename: string) {
   const blob = new Blob([content], { type: 'text/plain' });
