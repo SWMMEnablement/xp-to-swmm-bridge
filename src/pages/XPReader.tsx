@@ -992,6 +992,85 @@ const XPReader = () => {
                   </TabsContent>
                 )}
 
+                {/* RDII */}
+                {(result.rdiiHydrographs.length > 0 || result.rdiiInflows.length > 0) && (
+                  <TabsContent value="rdii">
+                    <div className="space-y-4">
+                      {/* Unit Hydrographs */}
+                      <Card>
+                        <CardHeader className="py-3">
+                          <CardTitle className="text-sm font-mono">Unit Hydrographs (RTK Parameters)</CardTitle>
+                        </CardHeader>
+                        <CardContent className="py-2">
+                          <div className="overflow-x-auto border rounded-lg">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="bg-muted/50 border-b">
+                                  {['Name', 'Rain Gage', 'Months', 'R1', 'T1', 'K1', 'R2', 'T2', 'K2', 'R3', 'T3', 'K3', 'IA Max', 'IA Recov', 'IA Init'].map(h => (
+                                    <th key={h} className="px-3 py-2 text-left font-mono text-xs text-muted-foreground uppercase tracking-wider whitespace-nowrap">{h}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {result.rdiiHydrographs.map((uh, i) => (
+                                  <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
+                                    <td className="px-3 py-1.5 font-mono text-xs text-primary font-medium">{uh.name}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs">{uh.rainGage}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-warning">{uh.months}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{f(uh.r1, 4)}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{f(uh.t1, 2)}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{f(uh.k1, 2)}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{f(uh.r2, 4)}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{f(uh.t2, 2)}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{f(uh.k2, 2)}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{f(uh.r3, 4)}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{f(uh.t3, 2)}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{f(uh.k3, 2)}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{uh.iaMax > 0 ? f(uh.iaMax, 4) : ''}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{uh.iaRecovery > 0 ? f(uh.iaRecovery, 4) : ''}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{uh.iaInit > 0 ? f(uh.iaInit, 4) : ''}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* RDII Inflow Assignments */}
+                      {result.rdiiInflows.length > 0 && (
+                        <Card>
+                          <CardHeader className="py-3">
+                            <CardTitle className="text-sm font-mono">RDII Inflow Assignments</CardTitle>
+                          </CardHeader>
+                          <CardContent className="py-2">
+                            <div className="overflow-x-auto border rounded-lg">
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="bg-muted/50 border-b">
+                                    {['Node', 'UH Group', 'Sewer Area'].map(h => (
+                                      <th key={h} className="px-3 py-2 text-left font-mono text-xs text-muted-foreground uppercase tracking-wider whitespace-nowrap">{h}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {result.rdiiInflows.map((ri, i) => (
+                                    <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
+                                      <td className="px-3 py-1.5 font-mono text-xs text-primary font-medium">{ri.nodeName}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-warning">{ri.uhGroupName}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-right">{f(ri.sewerArea)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  </TabsContent>
+                )}
+
                 <TabsContent value="jobctrl">
                   {Object.keys(result.jobControl).length === 0 ? (
                     <Card><CardContent className="py-4 text-sm text-muted-foreground">No job control data found.</CardContent></Card>
