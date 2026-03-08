@@ -186,6 +186,9 @@ const XPReader = () => {
                   {result.controlRules.length > 0 && (
                     <TabsTrigger value="controls" className="font-mono text-xs">Controls <Badge variant="secondary" className="ml-1 text-xs">{result.controlRules.length}</Badge></TabsTrigger>
                   )}
+                  {result.lidControls.length > 0 && (
+                    <TabsTrigger value="lid" className="font-mono text-xs">LID Controls <Badge variant="secondary" className="ml-1 text-xs">{result.lidControls.length}</Badge></TabsTrigger>
+                  )}
                   <TabsTrigger value="jobctrl" className="font-mono text-xs">Job Control</TabsTrigger>
                   <TabsTrigger value="map" className="font-mono text-xs">Network Map</TabsTrigger>
                   <TabsTrigger value="rawcards" className="font-mono text-xs">Raw Cards <Badge variant="secondary" className="ml-1 text-xs">{Object.keys(result.rawCards).length}</Badge></TabsTrigger>
@@ -204,6 +207,8 @@ const XPReader = () => {
                       { label: 'Transects', value: result.transects.length, color: 'text-success' },
                       { label: 'Pollutants', value: result.pollutants.length, color: 'text-destructive' },
                       { label: 'Controls', value: result.controlRules.length, color: 'text-warning' },
+                      { label: 'LID Controls', value: result.lidControls.length, color: 'text-success' },
+                      { label: 'LID Usages', value: result.lidUsages.length, color: 'text-success' },
                       { label: 'Junctions', value: stats?.nt.Junction || 0, color: 'text-primary' },
                       { label: 'Outfalls', value: stats?.nt.Outfall || 0, color: 'text-warning' },
                       { label: 'Storage', value: stats?.nt.Storage || 0, color: 'text-primary' },
