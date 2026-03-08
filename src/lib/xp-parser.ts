@@ -1126,6 +1126,15 @@ export class XPParser {
     if (this.lidControls.length > 0) {
       this.warnings.push(`Extracted ${this.lidControls.length} LID control(s) and ${this.lidUsages.length} LID usage(s) — verify layer parameters against original model.`);
     }
+
+    // Phase 16: RDII (Rainfall-Dependent Infiltration/Inflow) from EXTR:RD and RNFF:UH cards
+    // RDII inflow assignments are identified by the JNRR flag on D1 cards
+    // Unit hydrograph RTK parameters may be on EXTR:RD1/RD2 or RNFF:UH1/UH2 cards
+    this.parseRDII(rec, gd, ois, nodeNames);
+
+    if (this.rdiiHydrographs.length > 0 || this.rdiiInflows.length > 0) {
+      this.warnings.push(`Extracted ${this.rdiiHydrographs.length} RDII unit hydrograph(s) and ${this.rdiiInflows.length} RDII inflow(s) — verify RTK parameters against original model.`);
+    }
   }
 
   private parseControlRulesFromCONF(rec: RecordMap) {
