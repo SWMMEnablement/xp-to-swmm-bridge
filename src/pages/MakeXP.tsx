@@ -688,6 +688,11 @@ const MakeXP = () => {
               </div>
             </TabsContent>
 
+            {/* Network Map */}
+            <TabsContent value="map">
+              <MakeNetworkMap nodes={model.nodes} links={model.links} subcatchments={model.subcatchments} />
+            </TabsContent>
+
             {/* Preview */}
             <TabsContent value="preview">
               <Card>
