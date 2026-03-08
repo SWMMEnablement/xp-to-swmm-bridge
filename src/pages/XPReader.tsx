@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { XPParser, type XPParseResult, type XPNode, type XPLink, type XPSubcatchment, type XPTimeSeries, type XPPumpCurve, type XPTransect, type XPPollutant, type XPControlRule, DB, SHAPE_CODES, ROUTING_CODES, PUMP_CODES } from "@/lib/xp-parser";
+import { XPParser, type XPParseResult, type XPNode, type XPLink, type XPSubcatchment, type XPTimeSeries, type XPPumpCurve, type XPTransect, type XPPollutant, type XPControlRule, type XPLIDControl, type XPLIDUsage, DB, SHAPE_CODES, ROUTING_CODES, PUMP_CODES, LID_TYPE_NAMES } from "@/lib/xp-parser";
 import { buildINP, buildCSV } from "@/lib/swmm5-builder";
 import { Upload, FileDown, Map, Table, Settings, FileText, Search } from "lucide-react";
 
