@@ -814,6 +814,91 @@ const XPReader = () => {
                   </TabsContent>
                 )}
 
+                {/* LID Controls */}
+                {result.lidControls.length > 0 && (
+                  <TabsContent value="lid">
+                    <div className="space-y-4">
+                      {/* LID Control Definitions */}
+                      {result.lidControls.map((lid, i) => (
+                        <Card key={i}>
+                          <CardHeader className="py-3">
+                            <CardTitle className="text-sm font-mono flex items-center gap-2">
+                              <Badge variant="outline" className="font-mono">{lid.name}</Badge>
+                              <Badge className="bg-success/10 text-success border-success/20">{lid.lidTypeName}</Badge>
+                              <span className="text-xs text-muted-foreground">({lid.lidType})</span>
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="py-2">
+                            {lid.layers.length > 0 ? (
+                              <div className="overflow-x-auto border rounded-lg">
+                                <table className="w-full text-sm">
+                                  <thead>
+                                    <tr className="bg-muted/50 border-b">
+                                      {['Layer', 'Par1', 'Par2', 'Par3', 'Par4', 'Par5', 'Par6', 'Par7'].map(h => (
+                                        <th key={h} className="px-3 py-2 text-left font-mono text-xs text-muted-foreground uppercase tracking-wider whitespace-nowrap">{h}</th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {lid.layers.map((layer, li) => (
+                                      <tr key={li} className="border-b border-border/50 hover:bg-muted/30">
+                                        <td className="px-3 py-1.5 font-mono text-xs text-warning font-medium">{layer.layerType}</td>
+                                        {Array.from({ length: 7 }, (_, pi) => (
+                                          <td key={pi} className="px-3 py-1.5 font-mono text-xs text-right">
+                                            {layer.params[pi] != null ? f(layer.params[pi], 4) : ''}
+                                          </td>
+                                        ))}
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">No layer data found for this LID control.</p>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
+
+                      {/* LID Usage Assignments */}
+                      {result.lidUsages.length > 0 && (
+                        <Card>
+                          <CardHeader className="py-3">
+                            <CardTitle className="text-sm font-mono">LID Usage Assignments</CardTitle>
+                          </CardHeader>
+                          <CardContent className="py-2">
+                            <div className="overflow-x-auto border rounded-lg">
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="bg-muted/50 border-b">
+                                    {['Subcatchment', 'LID Control', '#Units', 'Area', 'Width', 'Init Sat%', 'From Imperv%', 'To Perv'].map(h => (
+                                      <th key={h} className="px-3 py-2 text-left font-mono text-xs text-muted-foreground uppercase tracking-wider whitespace-nowrap">{h}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {result.lidUsages.map((u, i) => (
+                                    <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
+                                      <td className="px-3 py-1.5 font-mono text-xs">{u.subcatchment}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-primary font-medium">{u.lidControl}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-right">{u.number}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-right">{f(u.area)}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-right">{f(u.width)}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-right">{f(u.initSat)}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-right">{f(u.fromImperv)}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-right">{u.toPerv}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  </TabsContent>
+                )}
+
                 {/* Controls */}
                 {result.controlRules.length > 0 && (
                   <TabsContent value="controls">
