@@ -426,6 +426,8 @@ export class XPParser {
   controlRules: XPControlRule[] = [];
   lidControls: XPLIDControl[] = [];
   lidUsages: XPLIDUsage[] = [];
+  rdiiHydrographs: XPRDIIUnitHydrograph[] = [];
+  rdiiInflows: XPRDIIInflow[] = [];
   pollutants: XPPollutant[] = [];
   landuses: XPLanduse[] = [];
   loadings: XPLoading[] = [];
@@ -462,6 +464,7 @@ export class XPParser {
       timeSeries: this.timeSeries, pumpCurves: this.pumpCurves, transects: this.transects,
       controlRules: this.controlRules,
       lidControls: this.lidControls, lidUsages: this.lidUsages,
+      rdiiHydrographs: this.rdiiHydrographs, rdiiInflows: this.rdiiInflows,
       pollutants: this.pollutants, landuses: this.landuses, loadings: this.loadings,
       buildups: this.buildups, washoffs: this.washoffs,
       jobControl: this.jobControl, rawCards: this.rawCards,
