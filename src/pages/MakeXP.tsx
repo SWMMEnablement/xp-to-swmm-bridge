@@ -163,6 +163,7 @@ const MakeXP = () => {
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="w-full flex flex-wrap h-auto gap-1 bg-muted/50 p-1">
+              <TabsTrigger value="templates" className="font-mono text-xs"><Layers className="h-3 w-3 mr-1" />Templates</TabsTrigger>
               <TabsTrigger value="settings" className="font-mono text-xs">Settings</TabsTrigger>
               <TabsTrigger value="nodes" className="font-mono text-xs">Nodes <Badge variant="secondary" className="ml-1 text-xs">{model.nodes.length}</Badge></TabsTrigger>
               <TabsTrigger value="links" className="font-mono text-xs">Links <Badge variant="secondary" className="ml-1 text-xs">{model.links.length}</Badge></TabsTrigger>
@@ -170,6 +171,48 @@ const MakeXP = () => {
               <TabsTrigger value="controls" className="font-mono text-xs">Controls <Badge variant="secondary" className="ml-1 text-xs">{model.controls.length}</Badge></TabsTrigger>
               <TabsTrigger value="preview" className="font-mono text-xs">Preview</TabsTrigger>
             </TabsList>
+
+            {/* Templates */}
+            <TabsContent value="templates">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {TEMPLATES.map(tmpl => (
+                  <Card key={tmpl.id} className="hover:border-primary/50 transition-colors cursor-pointer group" onClick={() => loadTemplate(tmpl.id)}>
+                    <CardHeader className="py-4">
+                      <CardTitle className="text-sm font-mono flex items-center gap-2">
+                        <span className="text-2xl">{tmpl.icon}</span>
+                        <span className="group-hover:text-primary transition-colors">{tmpl.name}</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="py-2 pb-4">
+                      <p className="text-xs text-muted-foreground mb-3">{tmpl.description}</p>
+                      <div className="flex gap-2 flex-wrap">
+                        <Badge variant="secondary" className="text-xs font-mono">{tmpl.model.nodes.length} nodes</Badge>
+                        <Badge variant="secondary" className="text-xs font-mono">{tmpl.model.links.length} links</Badge>
+                        {tmpl.model.subcatchments.length > 0 && (
+                          <Badge variant="secondary" className="text-xs font-mono">{tmpl.model.subcatchments.length} subcatch</Badge>
+                        )}
+                        {tmpl.model.controls.length > 0 && (
+                          <Badge variant="secondary" className="text-xs font-mono">{tmpl.model.controls.length} controls</Badge>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+
+                {/* Empty / Custom card */}
+                <Card className="hover:border-primary/50 transition-colors cursor-pointer group border-dashed" onClick={() => { setModel(createDefaultModel()); setActiveTab('settings'); }}>
+                  <CardHeader className="py-4">
+                    <CardTitle className="text-sm font-mono flex items-center gap-2">
+                      <span className="text-2xl">📄</span>
+                      <span className="group-hover:text-primary transition-colors">Blank Model</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="py-2 pb-4">
+                    <p className="text-xs text-muted-foreground">Start from scratch with an empty model. Add nodes, links, and subcatchments manually.</p>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
 
             {/* Settings */}
             <TabsContent value="settings">
