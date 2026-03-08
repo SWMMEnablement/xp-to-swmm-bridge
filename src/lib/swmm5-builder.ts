@@ -1,4 +1,4 @@
-import { type XPParseResult, type XPTimeSeries, type XPPumpCurve, type XPTransect, type XPPollutant, type XPLanduse, type XPBuildup, type XPWashoff, type XPLoading, type XPControlRule, SHAPE_CODES } from './xp-parser';
+import { type XPParseResult, type XPTimeSeries, type XPPumpCurve, type XPTransect, type XPPollutant, type XPLanduse, type XPBuildup, type XPWashoff, type XPLoading, type XPControlRule, type XPLIDControl, type XPLIDUsage, SHAPE_CODES } from './xp-parser';
 
 function f(v: number | undefined | null, d = 2): string {
   return v == null || v === 0 ? '0' : typeof v === 'number' ? v.toFixed(d) : String(v);
@@ -341,6 +341,30 @@ SKIP_STEADY_STATE    NO
       }
       inp += `\n`;
     });
+  }
+
+  // LID Controls
+  const lids = p.lidControls || [];
+  if (lids.length) {
+    inp += `[LID_CONTROLS]\n;;Name           Type/Layer   Par1       Par2       Par3       Par4       Par5       Par6       Par7\n;;-------------- ------------ ---------- ---------- ---------- ---------- ---------- ---------- ----------\n`;
+    lids.forEach(lid => {
+      inp += `${pd(lid.name, 16)} ${pd(lid.lidType, 12)}\n`;
+      lid.layers.forEach(layer => {
+        const params = layer.params.map(v => pd(f(v, 4), 10)).join(' ');
+        inp += `${pd(lid.name, 16)} ${pd(layer.layerType, 12)} ${params}\n`;
+      });
+    });
+    inp += '\n';
+  }
+
+  // LID Usage
+  const lidUsages = p.lidUsages || [];
+  if (lidUsages.length) {
+    inp += `[LID_USAGE]\n;;Subcatchment    LID Process      Number  Area       Width      InitSat    FromImperv ToPerv     RptFile                  DrainTo\n;;-------------- ---------------- ------- ---------- ---------- ---------- ---------- ---------- ------------------------ ----------------\n`;
+    lidUsages.forEach(u => {
+      inp += `${pd(u.subcatchment, 16)} ${pd(u.lidControl, 16)} ${pd(String(u.number), 7)} ${pd(f(u.area), 10)} ${pd(f(u.width), 10)} ${pd(f(u.initSat), 10)} ${pd(f(u.fromImperv), 10)} ${pd(String(u.toPerv), 10)} ${pd(u.rptFile || '*', 24)} ${u.drainTo || ''}\n`;
+    });
+    inp += '\n';
   }
 
   inp += `[REPORT]\nSUBCATCHMENTS ALL\nNODES ALL\nLINKS ALL\n`;

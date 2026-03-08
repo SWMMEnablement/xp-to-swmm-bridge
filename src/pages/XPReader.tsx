@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { XPParser, type XPParseResult, type XPNode, type XPLink, type XPSubcatchment, type XPTimeSeries, type XPPumpCurve, type XPTransect, type XPPollutant, type XPControlRule, DB, SHAPE_CODES, ROUTING_CODES, PUMP_CODES } from "@/lib/xp-parser";
+import { XPParser, type XPParseResult, type XPNode, type XPLink, type XPSubcatchment, type XPTimeSeries, type XPPumpCurve, type XPTransect, type XPPollutant, type XPControlRule, type XPLIDControl, type XPLIDUsage, DB, SHAPE_CODES, ROUTING_CODES, PUMP_CODES, LID_TYPE_NAMES } from "@/lib/xp-parser";
 import { buildINP, buildCSV } from "@/lib/swmm5-builder";
 import { Upload, FileDown, Map, Table, Settings, FileText, Search } from "lucide-react";
 
@@ -156,6 +156,9 @@ const XPReader = () => {
                     {result.controlRules.length > 0 && (
                       <Badge className="bg-warning/10 text-warning border-warning/20">{result.controlRules.length} controls</Badge>
                     )}
+                    {result.lidControls.length > 0 && (
+                      <Badge className="bg-success/10 text-success border-success/20">{result.lidControls.length} LID controls</Badge>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -183,6 +186,9 @@ const XPReader = () => {
                   {result.controlRules.length > 0 && (
                     <TabsTrigger value="controls" className="font-mono text-xs">Controls <Badge variant="secondary" className="ml-1 text-xs">{result.controlRules.length}</Badge></TabsTrigger>
                   )}
+                  {result.lidControls.length > 0 && (
+                    <TabsTrigger value="lid" className="font-mono text-xs">LID Controls <Badge variant="secondary" className="ml-1 text-xs">{result.lidControls.length}</Badge></TabsTrigger>
+                  )}
                   <TabsTrigger value="jobctrl" className="font-mono text-xs">Job Control</TabsTrigger>
                   <TabsTrigger value="map" className="font-mono text-xs">Network Map</TabsTrigger>
                   <TabsTrigger value="rawcards" className="font-mono text-xs">Raw Cards <Badge variant="secondary" className="ml-1 text-xs">{Object.keys(result.rawCards).length}</Badge></TabsTrigger>
@@ -201,6 +207,8 @@ const XPReader = () => {
                       { label: 'Transects', value: result.transects.length, color: 'text-success' },
                       { label: 'Pollutants', value: result.pollutants.length, color: 'text-destructive' },
                       { label: 'Controls', value: result.controlRules.length, color: 'text-warning' },
+                      { label: 'LID Controls', value: result.lidControls.length, color: 'text-success' },
+                      { label: 'LID Usages', value: result.lidUsages.length, color: 'text-success' },
                       { label: 'Junctions', value: stats?.nt.Junction || 0, color: 'text-primary' },
                       { label: 'Outfalls', value: stats?.nt.Outfall || 0, color: 'text-warning' },
                       { label: 'Storage', value: stats?.nt.Storage || 0, color: 'text-primary' },
@@ -806,6 +814,91 @@ const XPReader = () => {
                   </TabsContent>
                 )}
 
+                {/* LID Controls */}
+                {result.lidControls.length > 0 && (
+                  <TabsContent value="lid">
+                    <div className="space-y-4">
+                      {/* LID Control Definitions */}
+                      {result.lidControls.map((lid, i) => (
+                        <Card key={i}>
+                          <CardHeader className="py-3">
+                            <CardTitle className="text-sm font-mono flex items-center gap-2">
+                              <Badge variant="outline" className="font-mono">{lid.name}</Badge>
+                              <Badge className="bg-success/10 text-success border-success/20">{lid.lidTypeName}</Badge>
+                              <span className="text-xs text-muted-foreground">({lid.lidType})</span>
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="py-2">
+                            {lid.layers.length > 0 ? (
+                              <div className="overflow-x-auto border rounded-lg">
+                                <table className="w-full text-sm">
+                                  <thead>
+                                    <tr className="bg-muted/50 border-b">
+                                      {['Layer', 'Par1', 'Par2', 'Par3', 'Par4', 'Par5', 'Par6', 'Par7'].map(h => (
+                                        <th key={h} className="px-3 py-2 text-left font-mono text-xs text-muted-foreground uppercase tracking-wider whitespace-nowrap">{h}</th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {lid.layers.map((layer, li) => (
+                                      <tr key={li} className="border-b border-border/50 hover:bg-muted/30">
+                                        <td className="px-3 py-1.5 font-mono text-xs text-warning font-medium">{layer.layerType}</td>
+                                        {Array.from({ length: 7 }, (_, pi) => (
+                                          <td key={pi} className="px-3 py-1.5 font-mono text-xs text-right">
+                                            {layer.params[pi] != null ? f(layer.params[pi], 4) : ''}
+                                          </td>
+                                        ))}
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">No layer data found for this LID control.</p>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
+
+                      {/* LID Usage Assignments */}
+                      {result.lidUsages.length > 0 && (
+                        <Card>
+                          <CardHeader className="py-3">
+                            <CardTitle className="text-sm font-mono">LID Usage Assignments</CardTitle>
+                          </CardHeader>
+                          <CardContent className="py-2">
+                            <div className="overflow-x-auto border rounded-lg">
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="bg-muted/50 border-b">
+                                    {['Subcatchment', 'LID Control', '#Units', 'Area', 'Width', 'Init Sat%', 'From Imperv%', 'To Perv'].map(h => (
+                                      <th key={h} className="px-3 py-2 text-left font-mono text-xs text-muted-foreground uppercase tracking-wider whitespace-nowrap">{h}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {result.lidUsages.map((u, i) => (
+                                    <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
+                                      <td className="px-3 py-1.5 font-mono text-xs">{u.subcatchment}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-primary font-medium">{u.lidControl}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-right">{u.number}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-right">{f(u.area)}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-right">{f(u.width)}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-right">{f(u.initSat)}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-right">{f(u.fromImperv)}</td>
+                                      <td className="px-3 py-1.5 font-mono text-xs text-right">{u.toPerv}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  </TabsContent>
+                )}
+
                 {/* Controls */}
                 {result.controlRules.length > 0 && (
                   <TabsContent value="controls">
@@ -979,7 +1072,15 @@ const XPReader = () => {
                             <FileDown className="h-4 w-4 mr-2" /> Pollutants CSV
                           </Button>
                         )}
-                        <Button variant="outline" onClick={() => download(JSON.stringify({ format: result.format, title: result.title, nodes: result.nodes, links: result.links, subcatchments: result.subcatchments, timeSeries: result.timeSeries, pumpCurves: result.pumpCurves, transects: result.transects, controlRules: result.controlRules, pollutants: result.pollutants, landuses: result.landuses, buildups: result.buildups, washoffs: result.washoffs, loadings: result.loadings, jobControl: result.jobControl }, null, 2), 'xpswmm_data.json', 'application/json')}>
+                        {result.lidControls.length > 0 && (
+                          <Button onClick={() => {
+                            const rows = result.lidControls.flatMap(lid => lid.layers.map(l => ({ name: lid.name, type: lid.lidType, typeName: lid.lidTypeName, layer: l.layerType, ...Object.fromEntries(l.params.map((v, i) => [`p${i+1}`, v])) })));
+                            download(buildCSV(rows as any), 'xpswmm_lid_controls.csv', 'text/csv');
+                          }}>
+                            <FileDown className="h-4 w-4 mr-2" /> LID Controls CSV
+                          </Button>
+                        )}
+                        <Button variant="outline" onClick={() => download(JSON.stringify({ format: result.format, title: result.title, nodes: result.nodes, links: result.links, subcatchments: result.subcatchments, timeSeries: result.timeSeries, pumpCurves: result.pumpCurves, transects: result.transects, controlRules: result.controlRules, lidControls: result.lidControls, lidUsages: result.lidUsages, pollutants: result.pollutants, landuses: result.landuses, buildups: result.buildups, washoffs: result.washoffs, loadings: result.loadings, jobControl: result.jobControl }, null, 2), 'xpswmm_data.json', 'application/json')}>
                           Full JSON
                         </Button>
                         <Button variant="outline" onClick={() => download(buildINP(result), 'xpswmm_converted.inp', 'text/plain')}>

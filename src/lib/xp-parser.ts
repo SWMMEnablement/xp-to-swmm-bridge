@@ -313,6 +313,54 @@ export interface XPControlRule {
   elseActions: XPControlAction[];
 }
 
+// LID (Low Impact Development) types
+export const LID_TYPE_CODES: Record<number, string> = {
+  0: 'BC',   // Bio-Retention Cell
+  1: 'RG',   // Rain Garden
+  2: 'GR',   // Green Roof
+  3: 'IT',   // Infiltration Trench
+  4: 'PP',   // Permeable Pavement
+  5: 'RB',   // Rain Barrel
+  6: 'RD',   // Rooftop Disconnection
+  7: 'VS',   // Vegetative Swale
+};
+
+export const LID_TYPE_NAMES: Record<string, string> = {
+  BC: 'Bio-Retention Cell',
+  RG: 'Rain Garden',
+  GR: 'Green Roof',
+  IT: 'Infiltration Trench',
+  PP: 'Permeable Pavement',
+  RB: 'Rain Barrel',
+  RD: 'Rooftop Disconnection',
+  VS: 'Vegetative Swale',
+};
+
+export interface XPLIDLayer {
+  layerType: string;  // SURFACE, SOIL, PAVEMENT, STORAGE, DRAIN, DRAINMAT
+  params: number[];   // Layer-specific parameters
+}
+
+export interface XPLIDControl {
+  name: string;
+  lidType: string;       // BC, RG, GR, IT, PP, RB, RD, VS
+  lidTypeName: string;   // Human-readable name
+  layers: XPLIDLayer[];
+}
+
+export interface XPLIDUsage {
+  subcatchment: string;
+  lidControl: string;    // Reference to LID control name
+  number: number;        // Number of replicate units
+  area: number;          // Area of each unit (ft2 or m2)
+  width: number;         // Width of outflow face (ft or m)
+  initSat: number;       // Initial saturation (%)
+  fromImperv: number;    // % of impervious area treated
+  toPerv: number;        // 1 = send outflow to pervious area, 0 = not
+  rptFile: string;       // Optional report file
+  drainTo: string;       // Optional subcatchment to receive drain flow
+}
+
 export interface XPParseResult {
   nodes: XPNode[];
   links: XPLink[];
@@ -321,6 +369,8 @@ export interface XPParseResult {
   pumpCurves: XPPumpCurve[];
   transects: XPTransect[];
   controlRules: XPControlRule[];
+  lidControls: XPLIDControl[];
+  lidUsages: XPLIDUsage[];
   pollutants: XPPollutant[];
   landuses: XPLanduse[];
   loadings: XPLoading[];
@@ -343,6 +393,8 @@ export class XPParser {
   pumpCurves: XPPumpCurve[] = [];
   transects: XPTransect[] = [];
   controlRules: XPControlRule[] = [];
+  lidControls: XPLIDControl[] = [];
+  lidUsages: XPLIDUsage[] = [];
   pollutants: XPPollutant[] = [];
   landuses: XPLanduse[] = [];
   loadings: XPLoading[] = [];
@@ -378,6 +430,7 @@ export class XPParser {
       nodes: this.nodes, links: this.links, subcatchments: this.subcatchments,
       timeSeries: this.timeSeries, pumpCurves: this.pumpCurves, transects: this.transects,
       controlRules: this.controlRules,
+      lidControls: this.lidControls, lidUsages: this.lidUsages,
       pollutants: this.pollutants, landuses: this.landuses, loadings: this.loadings,
       buildups: this.buildups, washoffs: this.washoffs,
       jobControl: this.jobControl, rawCards: this.rawCards,
@@ -1029,6 +1082,16 @@ export class XPParser {
     if (this.controlRules.length > 0) {
       this.warnings.push(`Extracted ${this.controlRules.length} control rule(s) — verify thresholds and logic against original model.`);
     }
+
+    // Phase 15: LID (Low Impact Development) Controls from RNFF:L1/L2/L3/L4/L5/L6 cards
+    // XPSWMM stores LID definitions in the Runoff block using L-series cards
+    // L1: LID name and type, L2: Surface layer, L3: Soil layer, L4: Storage layer,
+    // L5: Drain layer, L6: Pavement/DrainMat layer
+    this.parseLIDControls(rec);
+
+    if (this.lidControls.length > 0) {
+      this.warnings.push(`Extracted ${this.lidControls.length} LID control(s) and ${this.lidUsages.length} LID usage(s) — verify layer parameters against original model.`);
+    }
   }
 
   private parseControlRulesFromCONF(rec: RecordMap) {
@@ -1226,6 +1289,140 @@ export class XPParser {
       }
     }
   }
+
+  private parseLIDControls(rec: RecordMap) {
+    const lidTypeFromCode = (code: number): string => LID_TYPE_CODES[code] || 'BC';
+
+    // Parse LID control definitions from RNFF:L1 cards
+    // L1 format: LID_name LID_type_code
+    const l1Data = rec['RNFF:L1'];
+    if (!l1Data) return;
+
+    for (const [oiStr, subs] of Object.entries(l1Data)) {
+      const oi = parseInt(oiStr);
+      if (oi <= 0) continue;
+
+      for (const [, records] of Object.entries(subs)) {
+        for (const data of records) {
+          const parts = data.trim().split(/\s+/);
+          if (parts.length < 2) continue;
+
+          const lidName = parts[0] || `LID_${oi}`;
+          const typeCode = parseInt(parts[1]) || 0;
+          const lidType = lidTypeFromCode(typeCode);
+          const lidTypeName = LID_TYPE_NAMES[lidType] || lidType;
+
+          const control: XPLIDControl = {
+            name: lidName,
+            lidType,
+            lidTypeName,
+            layers: [],
+          };
+
+          // L2: Surface layer - berm height, veg volume, surface roughness, surface slope, swale side slope
+          const l2 = rec['RNFF:L2']?.[oi];
+          if (l2) {
+            for (const [, recs] of Object.entries(l2)) {
+              for (const d of recs) {
+                const p = d.trim().split(/\s+/).map(Number).filter(v => !isNaN(v));
+                if (p.length > 0) control.layers.push({ layerType: 'SURFACE', params: p });
+              }
+            }
+          }
+
+          // L3: Soil layer - thickness, porosity, field capacity, wilt point, Ksat, Kslope, suction head
+          const l3 = rec['RNFF:L3']?.[oi];
+          if (l3) {
+            for (const [, recs] of Object.entries(l3)) {
+              for (const d of recs) {
+                const p = d.trim().split(/\s+/).map(Number).filter(v => !isNaN(v));
+                if (p.length > 0) control.layers.push({ layerType: 'SOIL', params: p });
+              }
+            }
+          }
+
+          // L4: Storage layer - height, void ratio, Ksat, clog factor
+          const l4 = rec['RNFF:L4']?.[oi];
+          if (l4) {
+            for (const [, recs] of Object.entries(l4)) {
+              for (const d of recs) {
+                const p = d.trim().split(/\s+/).map(Number).filter(v => !isNaN(v));
+                if (p.length > 0) control.layers.push({ layerType: 'STORAGE', params: p });
+              }
+            }
+          }
+
+          // L5: Drain layer - flow coefficient, flow exponent, offset height, open level, closed level, control curve
+          const l5 = rec['RNFF:L5']?.[oi];
+          if (l5) {
+            for (const [, recs] of Object.entries(l5)) {
+              for (const d of recs) {
+                const p = d.trim().split(/\s+/).map(Number).filter(v => !isNaN(v));
+                if (p.length > 0) control.layers.push({ layerType: 'DRAIN', params: p });
+              }
+            }
+          }
+
+          // L6: Pavement layer (for PP) or DrainMat layer (for GR)
+          const l6 = rec['RNFF:L6']?.[oi];
+          if (l6) {
+            for (const [, recs] of Object.entries(l6)) {
+              for (const d of recs) {
+                const p = d.trim().split(/\s+/).map(Number).filter(v => !isNaN(v));
+                const layerName = lidType === 'PP' ? 'PAVEMENT' : lidType === 'GR' ? 'DRAINMAT' : 'PAVEMENT';
+                if (p.length > 0) control.layers.push({ layerType: layerName, params: p });
+              }
+            }
+          }
+
+          this.lidControls.push(control);
+        }
+      }
+    }
+
+    // Parse LID usage assignments from RNFF:L7 cards
+    // L7 format: subcatch_idx lid_name number area width initSat fromImperv toPerv
+    const l7Data = rec['RNFF:L7'];
+    if (l7Data) {
+      for (const [oiStr, subs] of Object.entries(l7Data)) {
+        const oi = parseInt(oiStr);
+        if (oi <= 0) continue;
+        const scName = this.subcatchments.find(s => s.idx === oi)?.name || `Sub_${oi}`;
+
+        for (const [, records] of Object.entries(subs)) {
+          for (const data of records) {
+            const parts = data.trim().split(/\s+/);
+            if (parts.length < 2) continue;
+
+            const lidName = parts[0] || '';
+            const num = parseFloat(parts[1]) || 1;
+            const area = parseFloat(parts[2]) || 0;
+            const width = parseFloat(parts[3]) || 0;
+            const initSat = parseFloat(parts[4]) || 0;
+            const fromImperv = parseFloat(parts[5]) || 0;
+            const toPerv = parseFloat(parts[6]) || 0;
+
+            this.lidUsages.push({
+              subcatchment: scName,
+              lidControl: lidName,
+              number: num,
+              area,
+              width,
+              initSat,
+              fromImperv,
+              toPerv,
+              rptFile: '',
+              drainTo: '',
+            });
+          }
+        }
+      }
+    }
+
+    // Also check for LID data in XPX format sections [LID_CONTROL] and [LID_USAGE]
+    // These are handled in parseXPX if present
+  }
+
 
   private parseSWMM34(lines: string[]) {
     const nodeMap: Record<string, XPNode> = {};
