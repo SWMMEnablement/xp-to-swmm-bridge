@@ -1167,7 +1167,16 @@ const XPReader = () => {
                             <FileDown className="h-4 w-4 mr-2" /> LID Controls CSV
                           </Button>
                         )}
-                        <Button variant="outline" onClick={() => download(JSON.stringify({ format: result.format, title: result.title, nodes: result.nodes, links: result.links, subcatchments: result.subcatchments, timeSeries: result.timeSeries, pumpCurves: result.pumpCurves, transects: result.transects, controlRules: result.controlRules, lidControls: result.lidControls, lidUsages: result.lidUsages, pollutants: result.pollutants, landuses: result.landuses, buildups: result.buildups, washoffs: result.washoffs, loadings: result.loadings, jobControl: result.jobControl }, null, 2), 'xpswmm_data.json', 'application/json')}>
+                        {(result.rdiiHydrographs.length > 0 || result.rdiiInflows.length > 0) && (
+                          <Button onClick={() => {
+                            const uhRows = result.rdiiHydrographs.map(uh => ({ name: uh.name, rainGage: uh.rainGage, months: uh.months, R1: uh.r1, T1: uh.t1, K1: uh.k1, R2: uh.r2, T2: uh.t2, K2: uh.k2, R3: uh.r3, T3: uh.t3, K3: uh.k3, IAmax: uh.iaMax, IArecov: uh.iaRecovery, IAinit: uh.iaInit }));
+                            const inflowRows = result.rdiiInflows.map(ri => ({ node: ri.nodeName, uhGroup: ri.uhGroupName, sewerArea: ri.sewerArea }));
+                            download(buildCSV([...uhRows, ...inflowRows] as any), 'xpswmm_rdii.csv', 'text/csv');
+                          }}>
+                            <FileDown className="h-4 w-4 mr-2" /> RDII CSV
+                          </Button>
+                        )}
+                        <Button variant="outline" onClick={() => download(JSON.stringify({ format: result.format, title: result.title, nodes: result.nodes, links: result.links, subcatchments: result.subcatchments, timeSeries: result.timeSeries, pumpCurves: result.pumpCurves, transects: result.transects, controlRules: result.controlRules, lidControls: result.lidControls, lidUsages: result.lidUsages, rdiiHydrographs: result.rdiiHydrographs, rdiiInflows: result.rdiiInflows, pollutants: result.pollutants, landuses: result.landuses, buildups: result.buildups, washoffs: result.washoffs, loadings: result.loadings, jobControl: result.jobControl }, null, 2), 'xpswmm_data.json', 'application/json')}>
                           Full JSON
                         </Button>
                         <Button variant="outline" onClick={() => download(buildINP(result), 'xpswmm_converted.inp', 'text/plain')}>
