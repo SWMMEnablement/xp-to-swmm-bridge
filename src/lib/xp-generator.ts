@@ -105,23 +105,26 @@ function pad(s: string | number, w: number): string {
   return String(s).substring(0, w).padEnd(w);
 }
 
-// Format number to fixed width
+// Format number to fixed width (right-aligned)
 function num(v: number, w: number, d = 2): string {
   const s = v.toFixed(d);
   return s.substring(0, w).padStart(w);
 }
 
-// Build a single 80-col card line
+// Build a fixed-width card line matching parser column expectations
+// Parser reads: grp[0:4] sub[4:8] card[8:12] seq[12:16] oi[16:20]
+// Data offset: ZZZN/ZZZE=24, others=25
 function card(group: string, sub: number, cardId: string, seq: number, oi: number, data: string): string {
-  // Format: GRPP SSSS CCCC SEQQ  OI  DATA...
-  // Group=4, Sub=4, Card=4, Seq=4, OI=4, data=rest (up to col 80)
   const g = pad(group, 4);
   const s = String(sub).padStart(4);
   const c = pad(cardId, 4);
   const q = String(seq).padStart(4);
   const o = String(oi).padStart(4);
-  const line = `${g}${s} ${c}${q} ${o}  ${data}`;
-  return line.padEnd(80).substring(0, 80);
+  const isZZZ = group === 'ZZZN' || group === 'ZZZE';
+  const gap = isZZZ ? '    ' : '     '; // 4 or 5 chars to reach doff 24/25
+  const line = `${g}${s}${c}${q}${o}${gap}${data}`;
+  // Pad to minimum 80 but do NOT truncate — fields like ROUGH extend beyond col 80
+  return line.length >= 80 ? line : line.padEnd(80);
 }
 
 export function generateXP(model: MakeModel): string {
@@ -135,194 +138,155 @@ export function generateXP(model: MakeModel): string {
   lines.push('');
 
   // Job Control cards (EXTR group)
-  // A1 - Title
-  const titleData = pad(jc.title || 'Generated Model', 75);
-  lines.push(card('EXTR', 0, 'A1', 1, 0, `    ${titleData}`));
+  // A1 - Title (ALPHA p=5, w=75)
+  lines.push(card('EXTR', 0, 'A1', 1, 0, `    ${pad(jc.title || 'Generated Model', 75)}`));
 
-  // B1 - Time step
-  const deltData = `         ${num(jc.timeStep, 6, 1)}`;
-  lines.push(card('EXTR', 0, 'B1', 1, 0, deltData.padEnd(55)));
+  // B1 - Time step (DELT p=10, w=6)
+  lines.push(card('EXTR', 0, 'B1', 1, 0, `         ${num(jc.timeStep, 6, 1)}`));
 
-  // B2 - Metric flag
-  const metricFlag = jc.metric ? '1' : '0';
-  lines.push(card('EXTR', 0, 'B2', 1, 0, `   ${metricFlag}`));
+  // B2 - Metric flag (METRIC p=4, w=1)
+  lines.push(card('EXTR', 0, 'B2', 1, 0, `   ${jc.metric ? '1' : '0'}`));
 
-  // BB2 - Solver settings
-  const bb2Data = `     ${num(jc.maxTrials, 8, 0)}${num(jc.headTolerance, 8, 4)}${''.padEnd(30)}${''.padEnd(15)}${num(0, 8, 0)}${''.padEnd(1)}${String(jc.routingMethod)}`;
-  lines.push(card('EXTR', 0, 'BB2', 1, 0, bb2Data));
+  // BB2 - Solver settings (MFAIL p=6, FUDGE p=15, KINE p=79)
+  const bb2 = ''.padEnd(5) + num(jc.maxTrials, 8, 0) + ' ' + num(jc.headTolerance, 8, 4) + ''.padEnd(56) + String(jc.routingMethod);
+  lines.push(card('EXTR', 0, 'BB2', 1, 0, bb2));
 
   lines.push('');
 
-  // Node names (ZZZN:NODE cards)
+  // Node names (ZZZN:NODE cards) — doff=24, parser reads data[0:14] for name
   model.nodes.forEach((n, i) => {
-    const oi = i + 1;
-    lines.push(card('ZZZN', 0, 'NODE', 1, oi, pad(n.name, 20)));
+    lines.push(card('ZZZN', 0, 'NODE', 1, i + 1, pad(n.name, 20)));
   });
   lines.push('');
 
-  // Node coordinates and properties (SP1N cards)
+  // SP1N cards (NODX p=6/w=12, NODY p=18/w=12, FLGOUTF p=50/w=1, NODNAM p=62/w=10)
   model.nodes.forEach((n, i) => {
-    const oi = i + 1;
-    // SP1N: cols 6-17=X, 18-29=Y, 50=outfall flag, 62-71=name
-    const outfFlag = n.type === 'outfall' ? '1' : '0';
-    const sp1nData = `    ${num(n.x, 12, 2)}${num(n.y, 12, 2)}${''.padEnd(20)}${outfFlag}${''.padEnd(11)}${pad(n.name, 10)}`;
-    lines.push(card('EXTR', 0, 'SP1N', 1, oi, sp1nData));
+    const outf = n.type === 'outfall' ? '1' : '0';
+    const sp = ''.padEnd(5) + num(n.x, 12, 2) + num(n.y, 12, 2) + ''.padEnd(20) + outf + ''.padEnd(11) + pad(n.name, 10);
+    lines.push(card('EXTR', 0, 'SP1N', 1, i + 1, sp));
   });
   lines.push('');
 
-  // Node D1 cards (elevation, depth, inflow)
+  // D1 cards (GRELEV p=13/w=8, QINST p=31/w=8, Y0 p=40/w=7)
   model.nodes.forEach((n, i) => {
-    const oi = i + 1;
-    // D1: cols 13-20=GRELEV, 31-38=QINST, 40-46=Y0
-    const d1Data = `            ${num(n.elevation, 8, 2)}${''.padEnd(10)}${num(0, 8, 2)}${num(n.initDepth, 7, 2)}`;
-    lines.push(card('EXTR', 0, 'D1', 1, oi, d1Data));
+    const d1 = ''.padEnd(12) + num(n.elevation, 8, 2) + ''.padEnd(10) + num(0, 8, 2) + ' ' + num(n.initDepth, 7, 2);
+    lines.push(card('EXTR', 0, 'D1', 1, i + 1, d1));
   });
   lines.push('');
 
-  // Node E1 cards (max depth / storage)
+  // E1 cards (ZTOP p=13/w=7, ASTORE p=21/w=7)
   model.nodes.forEach((n, i) => {
-    const oi = i + 1;
     const ztop = n.elevation + n.maxDepth;
     const astore = n.type === 'storage' ? (n.storageArea || 0) : 0;
-    const e1Data = `            ${num(ztop, 7, 2)}${num(astore, 7, 2)}`;
-    lines.push(card('EXTR', 0, 'E1', 1, oi, e1Data));
+    const e1 = ''.padEnd(12) + num(ztop, 7, 2) + ' ' + num(astore, 7, 2);
+    lines.push(card('EXTR', 0, 'E1', 1, i + 1, e1));
   });
   lines.push('');
 
-  // Outfall J3 cards
+  // J3 cards for outfalls (KO p=4/w=1, DELTA p=11/w=8)
   const outfalls = model.nodes.filter(n => n.type === 'outfall');
   outfalls.forEach(n => {
     const oi = model.nodes.indexOf(n) + 1;
-    const ko = n.outfallType || 1;
-    const delta = n.fixedStage || 0;
-    const j3Data = `   ${ko}      ${num(delta, 8, 2)}`;
-    lines.push(card('EXTR', 0, 'J3', 1, oi, j3Data));
+    const j3 = ''.padEnd(3) + (n.outfallType || 1) + ''.padEnd(6) + num(n.fixedStage || 0, 8, 2);
+    lines.push(card('EXTR', 0, 'J3', 1, oi, j3));
   });
   if (outfalls.length) lines.push('');
 
-  // Link name cards (ZZZE:LINK or SPDN)
-  const nodeNameMap: Record<string, number> = {};
-  model.nodes.forEach((n, i) => { nodeNameMap[n.name] = i + 1; });
-
+  // SPDN cards (CNAME1 p=1/w=10=linkName, CNAME2 p=11/w=10=usNode, CNAME3 p=21/w=10=dsNode)
   model.links.forEach((l, i) => {
-    const oi = i + 1;
-    // SPDN: cols 1-10=name1(us), 11-20=name2(ds), 21-30=name3, 31-40=name4
-    const usName = l.fromNode;
-    const dsName = l.toNode;
-    const spdnData = pad(usName, 10) + pad(dsName, 10) + pad('', 10) + pad('', 10);
-    lines.push(card('EXTR', 0, 'SPDN', 1, oi, spdnData));
+    const spdn = pad(l.name, 10) + pad(l.fromNode, 10) + pad(l.toNode, 10) + pad('', 10);
+    lines.push(card('EXTR', 0, 'SPDN', 1, i + 1, spdn));
   });
   lines.push('');
 
-  // SPDV - link type flags
+  // SPDV cards (COND1 p=1, PUMP1 p=8, ORIF1 p=15, WEIR1 p=22)
   model.links.forEach((l, i) => {
-    const oi = i + 1;
     const isCond = l.type === 'conduit' ? '1' : '0';
     const isPump = l.type === 'pump' ? '1' : '0';
     const isOrif = l.type === 'orifice' ? '1' : '0';
     const isWeir = l.type === 'weir' ? '1' : '0';
-    const spdvData = `${isCond}      ${isPump}      ${isOrif}      ${isWeir}`;
-    lines.push(card('EXTR', 0, 'SPDV', 1, oi, spdvData));
+    const spdv = isCond + ''.padEnd(6) + isPump + ''.padEnd(6) + isOrif + ''.padEnd(6) + isWeir;
+    lines.push(card('EXTR', 0, 'SPDV', 1, i + 1, spdv));
   });
   lines.push('');
 
-  // Conduit C1 cards
+  // C1 cards (NKLASS p=13/w=2, DEEP p=25/w=7, WIDE p=34/w=7, LEN p=43/w=8, ZP1 p=52/w=8, ZP2 p=61/w=8, ROUGH p=70/w=10)
   const conduits = model.links.filter(l => l.type === 'conduit');
   conduits.forEach(l => {
     const oi = model.links.indexOf(l) + 1;
-    const shape = l.shape || 1;
-    const deep = l.depth || 1;
-    const wide = l.width || 0;
-    const len = l.length || 100;
-    const zp1 = l.usInvert || 0;
-    const zp2 = l.dsInvert || 0;
-    const rough = l.roughness || 0.013;
-    // C1: cols 13-14=NKLASS, 25-31=DEEP, 34-40=WIDE, 43-50=LEN, 52-59=ZP1, 61-68=ZP2, 70-79=ROUGH
-    const c1Data = `            ${num(shape, 2, 0)}${''.padEnd(8)}${num(deep, 7, 3)}${num(wide, 7, 3)}  ${num(len, 8, 2)}${num(zp1, 8, 2)}  ${num(zp2, 8, 2)}${num(rough, 10, 4)}`;
-    lines.push(card('EXTR', 0, 'C1', 1, oi, c1Data));
+    const c1 = ''.padEnd(12) + num(l.shape || 1, 2, 0) + ''.padEnd(10)
+      + num(l.depth || 1, 7, 3) + ''.padEnd(2) + num(l.width || 0, 7, 3) + ''.padEnd(2)
+      + num(l.length || 100, 8, 2) + ''.padEnd(2) + num(l.usInvert || 0, 8, 2)
+      + ' ' + num(l.dsInvert || 0, 8, 2) + ' ' + num(l.roughness || 0.013, 10, 4);
+    lines.push(card('EXTR', 0, 'C1', 1, oi, c1));
   });
   if (conduits.length) {
-    // C6 - barrels
+    // C6 - barrels (BARREL p=67/w=8)
     conduits.forEach(l => {
       const oi = model.links.indexOf(l) + 1;
-      const barrels = l.barrels || 1;
-      lines.push(card('EXTR', 0, 'C6', 1, oi, `${''.padEnd(62)}${num(barrels, 8, 0)}`));
+      lines.push(card('EXTR', 0, 'C6', 1, oi, ''.padEnd(66) + num(l.barrels || 1, 8, 0)));
     });
     lines.push('');
   }
 
-  // Pump H1A cards
+  // H1A cards (IPTYP p=1/w=2, PON p=11/w=8, POFF p=19/w=8, PSEL p=51/w=20)
   const pumps = model.links.filter(l => l.type === 'pump');
   pumps.forEach(l => {
     const oi = model.links.indexOf(l) + 1;
-    const iptyp = l.pumpType || 2;
-    const pon = l.pumpOnDepth || 0;
-    const poff = l.pumpOffDepth || 0;
     const psel = l.pumpCurveName || `PC_${l.name}`;
-    const h1aData = `${num(iptyp, 2, 0)}${''.padEnd(8)}${num(pon, 8, 2)}${num(poff, 8, 2)}${''.padEnd(21)}${pad(psel, 20)}`;
-    lines.push(card('EXTR', 0, 'H1A', 1, oi, h1aData));
+    const h1a = num(l.pumpType || 2, 2, 0) + ''.padEnd(8) + num(l.pumpOnDepth || 0, 8, 2)
+      + num(l.pumpOffDepth || 0, 8, 2) + ''.padEnd(24) + pad(psel, 20);
+    lines.push(card('EXTR', 0, 'H1A', 1, oi, h1a));
   });
   if (pumps.length) lines.push('');
 
-  // Orifice F1 cards
+  // F1 cards (ONKLASS p=23/w=1, AORIF p=25/w=6, CORIF p=32/w=4, ZP p=37/w=7, DORIF p=45/w=10)
   const orifices = model.links.filter(l => l.type === 'orifice');
   orifices.forEach(l => {
     const oi = model.links.indexOf(l) + 1;
-    const onklass = l.orificeShape || 2;
-    const corif = l.orificeCoeff || 0.65;
-    const dorif = l.orificeDiam || 1;
-    const zp = l.orificeOffset || 0;
-    const f1Data = `${''.padEnd(18)}${onklass}  ${num(0, 6, 2)}${num(corif, 4, 2)}${num(zp, 7, 2)}${num(dorif, 10, 3)}`;
-    lines.push(card('EXTR', 0, 'F1', 1, oi, f1Data));
+    const f1 = ''.padEnd(22) + (l.orificeShape || 2) + ' ' + num(0, 6, 2)
+      + ' ' + num(l.orificeCoeff || 0.65, 4, 2) + ' ' + num(l.orificeOffset || 0, 7, 2)
+      + ' ' + num(l.orificeDiam || 1, 10, 3);
+    lines.push(card('EXTR', 0, 'F1', 1, oi, f1));
   });
   if (orifices.length) lines.push('');
 
-  // Weir G1 cards
+  // G1 cards (KWEIR p=22/w=1, YCREST p=24/w=8, YTOP p=33/w=8, WLEN p=44/w=6, COEFF p=53/w=4)
   const weirs = model.links.filter(l => l.type === 'weir');
   weirs.forEach(l => {
     const oi = model.links.indexOf(l) + 1;
-    const kweir = l.weirType || 1;
-    const ycrest = l.weirCrest || 0;
-    const ytop = l.weirTop || 1;
-    const wlen = l.weirLength || 1;
-    const coeff = l.weirCoeff || 1.84;
-    const g1Data = `${''.padEnd(17)}${kweir}  ${num(ycrest, 8, 2)}${num(ytop, 8, 2)}${''.padEnd(3)}${num(wlen, 6, 2)}${''.padEnd(3)}${num(coeff, 4, 2)}`;
-    lines.push(card('EXTR', 0, 'G1', 1, oi, g1Data));
+    const g1 = ''.padEnd(21) + (l.weirType || 1) + ' ' + num(l.weirCrest || 0, 8, 2)
+      + ' ' + num(l.weirTop || 1, 8, 2) + ''.padEnd(3) + num(l.weirLength || 1, 6, 2)
+      + ''.padEnd(3) + num(l.weirCoeff || 1.84, 4, 2);
+    lines.push(card('EXTR', 0, 'G1', 1, oi, g1));
   });
   if (weirs.length) lines.push('');
 
-  // Subcatchments (RNFF group)
+  // Subcatchments (RNFF group) — field positions all 10-char wide at p=1,11,21,31,41,51
   model.subcatchments.forEach((sc, i) => {
     const oi = i + 1;
-    // R1: name, area, width, slope, imperv, outlet
-    const r1Data = `${pad(sc.name, 10)}${num(sc.area, 10, 2)}${num(sc.width, 10, 2)}${num(sc.slope, 10, 4)}${num(sc.imperv, 10, 2)}${pad(sc.outlet, 10)}`;
-    lines.push(card('RNFF', 0, 'R1', 1, oi, r1Data));
-    // R2: Manning's n, depression storage
-    const r2Data = `${num(sc.nImperv, 10, 4)}${num(sc.nPerv, 10, 4)}${num(sc.dsImperv, 10, 4)}${num(sc.dsPerv, 10, 4)}${num(0, 10, 2)}`;
-    lines.push(card('RNFF', 0, 'R2', 1, oi, r2Data));
-    // R3: Infiltration (Horton)
+    const r1 = pad(sc.name, 10) + num(sc.area, 10, 2) + num(sc.width, 10, 2) + num(sc.slope, 10, 4) + num(sc.imperv, 10, 2) + pad(sc.outlet, 10);
+    lines.push(card('RNFF', 0, 'R1', 1, oi, r1));
+    const r2 = num(sc.nImperv, 10, 4) + num(sc.nPerv, 10, 4) + num(sc.dsImperv, 10, 4) + num(sc.dsPerv, 10, 4) + num(0, 10, 2);
+    lines.push(card('RNFF', 0, 'R2', 1, oi, r2));
     if (sc.f0 > 0) {
-      const r3Data = `${num(sc.f0, 10, 4)}${num(sc.ff, 10, 4)}${num(sc.fDecay, 10, 4)}`;
-      lines.push(card('RNFF', 0, 'R3', 1, oi, r3Data));
+      const r3 = num(sc.f0, 10, 4) + num(sc.ff, 10, 4) + num(sc.fDecay, 10, 4);
+      lines.push(card('RNFF', 0, 'R3', 1, oi, r3));
     }
   });
   if (model.subcatchments.length) lines.push('');
 
-  // Controls (CONF group)
+  // Controls (CONF group) — parser splits by whitespace
   model.controls.forEach((ctrl, i) => {
     const oi = i + 1;
-    // C1: rule name and priority
     lines.push(card('CONF', 0, 'C1', 1, oi, `${pad(ctrl.name, 20)}${num(ctrl.priority, 4, 0)}`));
-    // C2: condition
-    const c2Data = `NODE   ${pad(ctrl.sensorNode, 16)}${pad(ctrl.attribute, 10)}${pad(ctrl.relation, 4)}${num(ctrl.threshold, 10, 4)}`;
-    lines.push(card('CONF', 0, 'C2', 1, oi, c2Data));
-    // C3: action
-    const c3Data = `${pad(ctrl.actionLink, 16)}STATUS  ${pad(ctrl.action, 10)}`;
+    const c2 = `NODE   ${pad(ctrl.sensorNode, 16)}${pad(ctrl.attribute, 10)}${pad(ctrl.relation, 4)}${num(ctrl.threshold, 10, 4)}`;
+    lines.push(card('CONF', 0, 'C2', 1, oi, c2));
+    const c3 = `${pad(ctrl.actionLink, 16)}STATUS  ${pad(ctrl.action, 10)}`;
     if (ctrl.elseAction) {
-      const elseData = `ELSE ${pad(ctrl.actionLink, 16)}STATUS  ${pad(ctrl.elseAction, 10)}`;
-      lines.push(card('CONF', 0, 'C3', 1, oi, c3Data + elseData));
+      lines.push(card('CONF', 0, 'C3', 1, oi, c3 + `ELSE ${pad(ctrl.actionLink, 16)}STATUS  ${pad(ctrl.elseAction, 10)}`));
     } else {
-      lines.push(card('CONF', 0, 'C3', 1, oi, c3Data));
+      lines.push(card('CONF', 0, 'C3', 1, oi, c3));
     }
   });
   if (model.controls.length) lines.push('');
