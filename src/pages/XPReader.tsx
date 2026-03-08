@@ -156,6 +156,9 @@ const XPReader = () => {
                     {result.controlRules.length > 0 && (
                       <Badge className="bg-warning/10 text-warning border-warning/20">{result.controlRules.length} controls</Badge>
                     )}
+                    {result.lidControls.length > 0 && (
+                      <Badge className="bg-success/10 text-success border-success/20">{result.lidControls.length} LID controls</Badge>
+                    )}
                   </div>
                 </CardContent>
               </Card>
