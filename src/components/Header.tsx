@@ -50,6 +50,12 @@ export const Header = () => {
               GitHub Batch
             </Link>
             <Link 
+              to="/make-xp" 
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Make .xp
+            </Link>
+            <Link 
               to="/docs" 
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >

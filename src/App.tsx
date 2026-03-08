@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Documentation from "./pages/Documentation";
 import XPReader from "./pages/XPReader";
 import GitHubBatch from "./pages/GitHubBatch";
+import MakeXP from "./pages/MakeXP";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -21,6 +22,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/reader" element={<XPReader />} />
           <Route path="/github-batch" element={<GitHubBatch />} />
+          <Route path="/make-xp" element={<MakeXP />} />
           <Route path="/docs" element={<Documentation />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
