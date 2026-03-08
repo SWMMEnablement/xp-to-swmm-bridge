@@ -1072,7 +1072,15 @@ const XPReader = () => {
                             <FileDown className="h-4 w-4 mr-2" /> Pollutants CSV
                           </Button>
                         )}
-                        <Button variant="outline" onClick={() => download(JSON.stringify({ format: result.format, title: result.title, nodes: result.nodes, links: result.links, subcatchments: result.subcatchments, timeSeries: result.timeSeries, pumpCurves: result.pumpCurves, transects: result.transects, controlRules: result.controlRules, pollutants: result.pollutants, landuses: result.landuses, buildups: result.buildups, washoffs: result.washoffs, loadings: result.loadings, jobControl: result.jobControl }, null, 2), 'xpswmm_data.json', 'application/json')}>
+                        {result.lidControls.length > 0 && (
+                          <Button onClick={() => {
+                            const rows = result.lidControls.flatMap(lid => lid.layers.map(l => ({ name: lid.name, type: lid.lidType, typeName: lid.lidTypeName, layer: l.layerType, ...Object.fromEntries(l.params.map((v, i) => [`p${i+1}`, v])) })));
+                            download(buildCSV(rows as any), 'xpswmm_lid_controls.csv', 'text/csv');
+                          }}>
+                            <FileDown className="h-4 w-4 mr-2" /> LID Controls CSV
+                          </Button>
+                        )}
+                        <Button variant="outline" onClick={() => download(JSON.stringify({ format: result.format, title: result.title, nodes: result.nodes, links: result.links, subcatchments: result.subcatchments, timeSeries: result.timeSeries, pumpCurves: result.pumpCurves, transects: result.transects, controlRules: result.controlRules, lidControls: result.lidControls, lidUsages: result.lidUsages, pollutants: result.pollutants, landuses: result.landuses, buildups: result.buildups, washoffs: result.washoffs, loadings: result.loadings, jobControl: result.jobControl }, null, 2), 'xpswmm_data.json', 'application/json')}>
                           Full JSON
                         </Button>
                         <Button variant="outline" onClick={() => download(buildINP(result), 'xpswmm_converted.inp', 'text/plain')}>
