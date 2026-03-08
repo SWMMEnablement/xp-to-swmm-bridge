@@ -27,7 +27,15 @@ const uid = () => `id_${++_uid}`;
 const MakeXP = () => {
   const [model, setModel] = useState<MakeModel>(createDefaultModel);
   const [preview, setPreview] = useState('');
-  const [activeTab, setActiveTab] = useState('settings');
+  const [activeTab, setActiveTab] = useState('templates');
+
+  const loadTemplate = (templateId: string) => {
+    const tmpl = TEMPLATES.find(t => t.id === templateId);
+    if (tmpl) {
+      setModel(JSON.parse(JSON.stringify(tmpl.model)));
+      setActiveTab('settings');
+    }
+  };
 
   const updateModel = useCallback((updater: (m: MakeModel) => MakeModel) => {
     setModel(prev => updater(prev));
