@@ -1,4 +1,4 @@
-import { type XPParseResult, type XPTimeSeries, type XPPumpCurve, type XPTransect, type XPPollutant, type XPLanduse, type XPBuildup, type XPWashoff, type XPLoading, type XPControlRule, type XPLIDControl, type XPLIDUsage, type XPRDIIUnitHydrograph, type XPRDIIInflow, SHAPE_CODES } from './xp-parser';
+import { type XPParseResult, type XPTimeSeries, type XPPumpCurve, type XPTransect, type XPPollutant, type XPLanduse, type XPBuildup, type XPWashoff, type XPLoading, type XPControlRule, type XPLIDControl, type XPLIDUsage, type XPRDIIUnitHydrograph, type XPRDIIInflow, type XPDWFInflow, type XPPattern, SHAPE_CODES } from './xp-parser';
 
 function f(v: number | undefined | null, d = 2): string {
   return v == null || v === 0 ? '0' : typeof v === 'number' ? v.toFixed(d) : String(v);
