@@ -690,7 +690,17 @@ const MakeXP = () => {
 
             {/* Network Map */}
             <TabsContent value="map">
-              <MakeNetworkMap nodes={model.nodes} links={model.links} subcatchments={model.subcatchments} />
+              <MakeNetworkMap
+                nodes={model.nodes}
+                links={model.links}
+                subcatchments={model.subcatchments}
+                onNodeMove={(nodeId, x, y) => {
+                  updateModel(m => ({
+                    ...m,
+                    nodes: m.nodes.map(n => n.id === nodeId ? { ...n, x, y } : n),
+                  }));
+                }}
+              />
             </TabsContent>
 
             {/* Preview */}
