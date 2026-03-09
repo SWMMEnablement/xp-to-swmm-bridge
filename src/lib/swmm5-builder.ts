@@ -207,7 +207,9 @@ SKIP_STEADY_STATE    NO
     if (node) nodeToTS[node.name] = ts.name;
   });
 
-  const inflowNodes = p.nodes.filter(n => (n.qinst && n.qinst > 0) || nodeToTS[n.name]);
+  // Exclude nodes that are DWF sources (they go to [DWF] instead)
+  const dwfNodeNames = new Set((p.dwfInflows || []).map(d => d.nodeName));
+  const inflowNodes = p.nodes.filter(n => ((n.qinst && n.qinst > 0) || nodeToTS[n.name]) && !dwfNodeNames.has(n.name));
   if (inflowNodes.length) {
     inp += `[INFLOWS]\n;;Node           Constituent  Time Series      Type     Mfactor  Sfactor  Baseline Pattern\n;;-------------- ------------ ---------------- -------- -------- -------- -------- --------\n`;
     inflowNodes.forEach(n => {
