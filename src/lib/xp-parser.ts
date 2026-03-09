@@ -1611,8 +1611,134 @@ export class XPParser {
     }
   }
 
+  private parseDWF(
+    rec: RecordMap,
+    gd: (key: string, oi: number, ...preferSubs: number[]) => string,
+    ois: (key: string) => number[],
+    nodeNames: Record<number, string>
+  ) {
+    // Build set of nodes that already have time series inflows (not DWF)
+    const tsNodeOIs = new Set(this.timeSeries.map(ts => ts.nodeIdx));
 
-  private parseSWMM34(lines: string[]) {
+    // Strategy 1: Look for explicit DWF cards (SWMM:DWF, EXTR:DW1, EXTR:DW2)
+    const dwfCardKeys = ['SWMM:DWF', 'EXTR:DW1', 'EXTR:DWF', 'SWMM:DW1'];
+    for (const cardKey of dwfCardKeys) {
+      const dwfData = rec[cardKey];
+      if (!dwfData) continue;
+      for (const [oiStr, subs] of Object.entries(dwfData)) {
+        const oi = parseInt(oiStr);
+        if (oi <= 0) continue;
+        for (const [, records] of Object.entries(subs)) {
+          for (const data of records) {
+            const parts = data.trim().split(/\s+/);
+            if (parts.length < 2) continue;
+            const nodeName = nodeNames[oi] || parts[0] || `Node_${oi}`;
+            const constituent = (parts[1] || 'FLOW').toUpperCase();
+            const baseline = parseFloat(parts[2]) || 0;
+            const patterns: string[] = [];
+            for (let i = 3; i < Math.min(parts.length, 7); i++) {
+              const pn = parts[i]?.replace(/"/g, '').trim();
+              if (pn && pn !== '' && pn !== '*') patterns.push(pn);
+              else patterns.push('');
+            }
+            if (baseline > 0 || patterns.some(p => p)) {
+              this.dwfInflows.push({ nodeName, constituent, baseline, patterns });
+            }
+          }
+        }
+      }
+    }
+
+    // Strategy 2: Look for pattern definitions (SWMM:PAT, EXTR:PAT, SWMM:PT1)
+    const patCardKeys = ['SWMM:PAT', 'EXTR:PAT', 'SWMM:PT1', 'EXTR:PT1'];
+    for (const cardKey of patCardKeys) {
+      const patData = rec[cardKey];
+      if (!patData) continue;
+      for (const [oiStr, subs] of Object.entries(patData)) {
+        const oi = parseInt(oiStr);
+        if (oi <= 0) continue;
+        for (const [, records] of Object.entries(subs)) {
+          for (const data of records) {
+            const parts = data.trim().split(/\s+/);
+            if (parts.length < 3) continue;
+            const name = parts[0] || `Pattern_${oi}`;
+            const type = (parts[1] || 'HOURLY').toUpperCase();
+            const mults = parts.slice(2).map(Number).filter(v => !isNaN(v));
+            if (mults.length > 0) {
+              // Merge with existing pattern of same name (continuation lines)
+              const existing = this.patterns.find(p => p.name === name && p.type === type);
+              if (existing) {
+                existing.multipliers.push(...mults);
+              } else {
+                this.patterns.push({ name, type, multipliers: mults });
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Strategy 3: Infer DWF from nodes with GINFLOW flag or QINST > 0
+    // that don't already have time series inflows or explicit DWF entries
+    const existingDWFNodes = new Set(this.dwfInflows.map(d => d.nodeName));
+    for (const node of this.nodes) {
+      if (existingDWFNodes.has(node.name)) continue;
+      if (tsNodeOIs.has(node.idx)) continue;
+
+      const sp = gd('EXTR:SP1N', node.idx, 0);
+      const ginflow = sp ? parseInt(this.xf(sp, DB.GINFLOW).trim()) || 0 : 0;
+
+      // GINFLOW >= 2 indicates DWF mode, or QINST > 0 with no time series
+      if (ginflow >= 2 || (node.qinst > 0 && !tsNodeOIs.has(node.idx))) {
+        const baseline = node.qinst || 0;
+        if (baseline > 0) {
+          // Look for associated pattern references on D1A or D4 cards
+          const patNames: string[] = [];
+          const d1a = gd('EXTR:D1A', node.idx, 0);
+          if (d1a) {
+            const parts = d1a.trim().split(/\s+/);
+            for (const p of parts) {
+              const pn = p.replace(/"/g, '').trim();
+              if (pn && pn !== '0' && pn !== '*' && isNaN(Number(pn))) {
+                patNames.push(pn);
+              }
+            }
+          }
+          this.dwfInflows.push({
+            nodeName: node.name,
+            constituent: 'FLOW',
+            baseline,
+            patterns: patNames,
+          });
+        }
+      }
+    }
+
+    // Strategy 4: Generate default hourly pattern if DWF nodes exist but no patterns defined
+    if (this.dwfInflows.length > 0 && this.patterns.length === 0) {
+      // Check if any DWF inflow references a pattern
+      const hasPatternRefs = this.dwfInflows.some(d => d.patterns.some(p => p));
+      if (hasPatternRefs) {
+        // Create placeholder patterns for referenced names
+        const referencedNames = new Set<string>();
+        this.dwfInflows.forEach(d => d.patterns.forEach(p => { if (p) referencedNames.add(p); }));
+        for (const pName of referencedNames) {
+          if (!this.patterns.find(p => p.name === pName)) {
+            // Default to flat pattern (all 1.0 multipliers)
+            this.patterns.push({
+              name: pName,
+              type: 'HOURLY',
+              multipliers: Array(24).fill(1.0),
+            });
+            this.warnings.push(`Pattern '${pName}' referenced by DWF but not found in file — placeholder created with flat multipliers.`);
+          }
+        }
+      }
+    }
+  }
+
+
+
     const nodeMap: Record<string, XPNode> = {};
     const linkList: XPLink[] = [];
     for (const raw of lines) {
