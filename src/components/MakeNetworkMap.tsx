@@ -29,7 +29,7 @@ export function MakeNetworkMap({ nodes, links, subcatchments }: Props) {
 
     const pad = 50;
     const w = 900;
-    const h = 460;
+    const baseH = 460;
 
     // Use coordinates if available, else auto-layout in a grid
     let positioned: { node: MakeNode; px: number; py: number }[];
