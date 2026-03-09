@@ -195,6 +195,9 @@ const XPReader = () => {
                   {(result.rdiiHydrographs.length > 0 || result.rdiiInflows.length > 0) && (
                     <TabsTrigger value="rdii" className="font-mono text-xs">RDII <Badge variant="secondary" className="ml-1 text-xs">{result.rdiiInflows.length}</Badge></TabsTrigger>
                   )}
+                  {(result.dwfInflows.length > 0 || result.patterns.length > 0) && (
+                    <TabsTrigger value="dwf" className="font-mono text-xs">DWF <Badge variant="secondary" className="ml-1 text-xs">{result.dwfInflows.length}</Badge></TabsTrigger>
+                  )}
                   <TabsTrigger value="jobctrl" className="font-mono text-xs">Job Control</TabsTrigger>
                   <TabsTrigger value="map" className="font-mono text-xs">Network Map</TabsTrigger>
                   <TabsTrigger value="rawcards" className="font-mono text-xs">Raw Cards <Badge variant="secondary" className="ml-1 text-xs">{Object.keys(result.rawCards).length}</Badge></TabsTrigger>
