@@ -33,11 +33,16 @@ export function MakeNetworkMap({ nodes, links, subcatchments }: Props) {
 
     // Use coordinates if available, else auto-layout in a grid
     let positioned: { node: MakeNode; px: number; py: number }[];
+    let h = baseH;
     if (hasCoords) {
       const xs = nodes.map(n => n.x), ys = nodes.map(n => n.y);
       const xn = Math.min(...xs), xx = Math.max(...xs);
       const yn = Math.min(...ys), yx = Math.max(...ys);
       const xr = xx - xn, yr = yx - yn;
+      // Compute height to preserve data aspect ratio
+      if (xr > 0 && yr > 0) {
+        h = Math.max(300, Math.min(800, 2 * pad + (w - 2 * pad) * (yr / xr)));
+      }
       positioned = nodes.map(n => {
         const px = xr > 0
           ? pad + ((n.x - xn) / xr) * (w - 2 * pad)
@@ -48,6 +53,7 @@ export function MakeNetworkMap({ nodes, links, subcatchments }: Props) {
         return { node: n, px, py };
       });
     } else {
+      h = baseH;
       const cols = Math.ceil(Math.sqrt(nodes.length));
       const gx = (w - 2 * pad) / Math.max(cols - 1, 1);
       const rows = Math.ceil(nodes.length / cols);
