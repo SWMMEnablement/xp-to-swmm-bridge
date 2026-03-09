@@ -37,11 +37,15 @@ export function MakeNetworkMap({ nodes, links, subcatchments }: Props) {
       const xs = nodes.map(n => n.x), ys = nodes.map(n => n.y);
       const xn = Math.min(...xs), xx = Math.max(...xs);
       const yn = Math.min(...ys), yx = Math.max(...ys);
-      const xr = xx - xn || 1, yr = yx - yn || 1;
+      const xr = xx - xn, yr = yx - yn;
+      // When one axis is degenerate (all same value), use the other axis range
+      // to maintain aspect ratio, or fall back to 1
+      const effectiveXr = xr || yr || 1;
+      const effectiveYr = yr || xr || 1;
       positioned = nodes.map(n => ({
         node: n,
-        px: pad + ((n.x - xn) / xr) * (w - 2 * pad),
-        py: h - pad - ((n.y - yn) / yr) * (h - 2 * pad),
+        px: pad + ((n.x - xn) / effectiveXr) * (w - 2 * pad),
+        py: h - pad - ((n.y - yn) / effectiveYr) * (h - 2 * pad),
       }));
     } else {
       const cols = Math.ceil(Math.sqrt(nodes.length));
