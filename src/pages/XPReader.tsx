@@ -1074,6 +1074,74 @@ const XPReader = () => {
                   </TabsContent>
                 )}
 
+                {/* DWF */}
+                {(result.dwfInflows.length > 0 || result.patterns.length > 0) && (
+                  <TabsContent value="dwf">
+                    <div className="space-y-4">
+                      {/* DWF Inflows */}
+                      <Card>
+                        <CardHeader className="py-3">
+                          <CardTitle className="text-sm font-mono">Dry Weather Flow Inflows</CardTitle>
+                        </CardHeader>
+                        <CardContent className="py-2">
+                          <div className="overflow-x-auto border rounded-lg">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="bg-muted/50 border-b">
+                                  {['Node', 'Constituent', 'Baseline', 'Pattern 1', 'Pattern 2', 'Pattern 3', 'Pattern 4'].map(h => (
+                                    <th key={h} className="px-3 py-2 text-left font-mono text-xs text-muted-foreground uppercase tracking-wider whitespace-nowrap">{h}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {result.dwfInflows.map((d, i) => (
+                                  <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
+                                    <td className="px-3 py-1.5 font-mono text-xs text-primary font-medium">{d.nodeName}</td>
+                                    <td className="px-3 py-1.5 font-mono text-xs">
+                                      <Badge variant={d.constituent === 'FLOW' ? 'default' : 'secondary'} className="text-xs">{d.constituent}</Badge>
+                                    </td>
+                                    <td className="px-3 py-1.5 font-mono text-xs text-right">{f(d.baseline, 4)}</td>
+                                    {[0, 1, 2, 3].map(j => (
+                                      <td key={j} className="px-3 py-1.5 font-mono text-xs text-warning">{d.patterns[j] || ''}</td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Patterns */}
+                      {result.patterns.length > 0 && (
+                        <Card>
+                          <CardHeader className="py-3">
+                            <CardTitle className="text-sm font-mono">Time Patterns</CardTitle>
+                          </CardHeader>
+                          <CardContent className="py-2">
+                            <div className="space-y-3">
+                              {result.patterns.map((pat, i) => (
+                                <div key={i} className="border rounded-lg p-3">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className="font-mono text-xs text-primary font-medium">{pat.name}</span>
+                                    <Badge variant="outline" className="text-xs">{pat.type}</Badge>
+                                    <span className="font-mono text-xs text-muted-foreground">{pat.multipliers.length} values</span>
+                                  </div>
+                                  <div className="flex flex-wrap gap-1">
+                                    {pat.multipliers.map((m, j) => (
+                                      <span key={j} className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{f(m, 4)}</span>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  </TabsContent>
+                )}
+
                 <TabsContent value="jobctrl">
                   {Object.keys(result.jobControl).length === 0 ? (
                     <Card><CardContent className="py-4 text-sm text-muted-foreground">No job control data found.</CardContent></Card>
