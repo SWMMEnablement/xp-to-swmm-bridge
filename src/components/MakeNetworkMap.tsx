@@ -100,7 +100,7 @@ export function MakeNetworkMap({ nodes, links, subcatchments }: Props) {
         </p>
 
         <div className="border border-border rounded-lg overflow-hidden bg-card">
-          <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ maxHeight: 460 }}>
+          <svg viewBox={`0 0 ${w} ${h}`} className="w-full">
             <rect width={w} height={h} fill="hsl(var(--card))" />
 
             {/* Grid lines */}
