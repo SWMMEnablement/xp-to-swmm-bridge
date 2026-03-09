@@ -449,6 +449,8 @@ export class XPParser {
   loadings: XPLoading[] = [];
   buildups: XPBuildup[] = [];
   washoffs: XPWashoff[] = [];
+  dwfInflows: XPDWFInflow[] = [];
+  patterns: XPPattern[] = [];
   jobControl: Record<string, string> = {};
   rawCards: Record<string, { data: string }[]> = {};
   format = 'unknown';
@@ -483,6 +485,7 @@ export class XPParser {
       rdiiHydrographs: this.rdiiHydrographs, rdiiInflows: this.rdiiInflows,
       pollutants: this.pollutants, landuses: this.landuses, loadings: this.loadings,
       buildups: this.buildups, washoffs: this.washoffs,
+      dwfInflows: this.dwfInflows, patterns: this.patterns,
       jobControl: this.jobControl, rawCards: this.rawCards,
       format: this.format, title: this.title, warnings: this.warnings
     };
