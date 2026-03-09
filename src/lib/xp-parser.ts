@@ -1154,6 +1154,15 @@ export class XPParser {
     if (this.rdiiHydrographs.length > 0 || this.rdiiInflows.length > 0) {
       this.warnings.push(`Extracted ${this.rdiiHydrographs.length} RDII unit hydrograph(s) and ${this.rdiiInflows.length} RDII inflow(s) — verify RTK parameters against original model.`);
     }
+
+    // Phase 17: Dry Weather Flow (DWF) extraction
+    // DWF is identified from GINFLOW flag on SP1N, baseline from QINST on D1,
+    // and patterns from DW1/DW2/PAT cards or SWMM:DWF cards
+    this.parseDWF(rec, gd, ois, nodeNames);
+
+    if (this.dwfInflows.length > 0) {
+      this.warnings.push(`Extracted ${this.dwfInflows.length} DWF inflow(s) and ${this.patterns.length} pattern(s) — verify baseline values and patterns against original model.`);
+    }
   }
 
   private parseControlRulesFromCONF(rec: RecordMap) {
