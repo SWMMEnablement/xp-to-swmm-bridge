@@ -1,5 +1,7 @@
 import { useMemo, useRef, useCallback, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ZoomIn, ZoomOut, Maximize, Move } from "lucide-react";
 import type { MakeNode, MakeLink, MakeSubcatchment } from "@/lib/xp-generator";
 
 interface Props {
@@ -22,9 +24,19 @@ const LINK_COLORS: Record<string, string> = {
   weir: '#34d399',
 };
 
+const MIN_ZOOM = 0.25;
+const MAX_ZOOM = 8;
+const ZOOM_STEP = 1.2;
+
 export function MakeNetworkMap({ nodes, links, subcatchments, onNodeMove }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [dragNodeId, setDragNodeId] = useState<string | null>(null);
+  const [isPanning, setIsPanning] = useState(false);
+  const panStart = useRef<{ x: number; y: number; vx: number; vy: number } | null>(null);
+
+  // Zoom/pan state: viewBox origin and zoom level
+  const [zoom, setZoom] = useState(1);
+  const [viewOrigin, setViewOrigin] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const hasCoords = nodes.some(n => n.x !== 0 || n.y !== 0);
 
@@ -37,7 +49,6 @@ export function MakeNetworkMap({ nodes, links, subcatchments, onNodeMove }: Prop
 
     let positioned: { node: MakeNode; px: number; py: number }[];
     let h = baseH;
-    // Store transform params for inverse mapping
     let xMin = 0, xRange = 0, yMin = 0, yRange = 0;
 
     if (hasCoords) {
@@ -66,7 +77,6 @@ export function MakeNetworkMap({ nodes, links, subcatchments, onNodeMove }: Prop
       const gx = (w - 2 * pad) / Math.max(cols - 1, 1);
       const rows = Math.ceil(nodes.length / cols);
       const gy = (h - 2 * pad) / Math.max(rows - 1, 1);
-      // For auto-layout, synthesize a coordinate range
       xMin = 0; xRange = (cols - 1) * gx || w - 2 * pad;
       yMin = 0; yRange = (rows - 1) * gy || h - 2 * pad;
       positioned = nodes.map((n, i) => ({
@@ -95,7 +105,7 @@ export function MakeNetworkMap({ nodes, links, subcatchments, onNodeMove }: Prop
     return { x: Math.round(dataX * 10) / 10, y: Math.round(dataY * 10) / 10 };
   }, [layout]);
 
-  // Convert client mouse position to SVG coordinates
+  // Convert client mouse position to SVG coordinates (accounting for zoom/pan viewBox)
   const clientToSVG = useCallback((clientX: number, clientY: number) => {
     const svg = svgRef.current;
     if (!svg) return { x: 0, y: 0 };
@@ -108,6 +118,43 @@ export function MakeNetworkMap({ nodes, links, subcatchments, onNodeMove }: Prop
     return { x: svgPt.x, y: svgPt.y };
   }, []);
 
+  // Zoom toward a point in SVG coordinates
+  const zoomAt = useCallback((factor: number, svgX: number, svgY: number) => {
+    setZoom(prev => {
+      const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prev * factor));
+      const actualFactor = next / prev;
+      setViewOrigin(o => ({
+        x: svgX - (svgX - o.x) / actualFactor,
+        y: svgY - (svgY - o.y) / actualFactor,
+      }));
+      return next;
+    });
+  }, []);
+
+  const handleZoomIn = useCallback(() => {
+    if (!layout) return;
+    zoomAt(ZOOM_STEP, viewOrigin.x + layout.w / zoom / 2, viewOrigin.y + layout.h / zoom / 2);
+  }, [layout, zoom, viewOrigin, zoomAt]);
+
+  const handleZoomOut = useCallback(() => {
+    if (!layout) return;
+    zoomAt(1 / ZOOM_STEP, viewOrigin.x + layout.w / zoom / 2, viewOrigin.y + layout.h / zoom / 2);
+  }, [layout, zoom, viewOrigin, zoomAt]);
+
+  const handleResetView = useCallback(() => {
+    setZoom(1);
+    setViewOrigin({ x: 0, y: 0 });
+  }, []);
+
+  // Wheel zoom
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
+    const svgPt = clientToSVG(e.clientX, e.clientY);
+    zoomAt(factor, svgPt.x, svgPt.y);
+  }, [clientToSVG, zoomAt]);
+
+  // Node dragging
   const handlePointerDown = useCallback((e: React.PointerEvent, nodeId: string) => {
     if (!onNodeMove) return;
     e.preventDefault();
@@ -116,15 +163,49 @@ export function MakeNetworkMap({ nodes, links, subcatchments, onNodeMove }: Prop
     setDragNodeId(nodeId);
   }, [onNodeMove]);
 
+  // Pan: middle-click or Ctrl+left-click on background
+  const handleSvgPointerDown = useCallback((e: React.PointerEvent) => {
+    // Only start pan if not dragging a node
+    if (dragNodeId) return;
+    const isMiddle = e.button === 1;
+    const isCtrlLeft = e.button === 0 && (e.ctrlKey || e.metaKey);
+    const isRightBackground = e.button === 0 && !onNodeMove; // pan with left-click when no drag mode
+    if (isMiddle || isCtrlLeft) {
+      e.preventDefault();
+      (e.target as Element).setPointerCapture(e.pointerId);
+      setIsPanning(true);
+      panStart.current = { x: e.clientX, y: e.clientY, vx: viewOrigin.x, vy: viewOrigin.y };
+    }
+  }, [dragNodeId, onNodeMove, viewOrigin]);
+
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    // Pan
+    if (isPanning && panStart.current) {
+      const svg = svgRef.current;
+      if (!svg) return;
+      const rect = svg.getBoundingClientRect();
+      if (!layout) return;
+      const vbW = layout.w / zoom;
+      const vbH = layout.h / zoom;
+      const dx = (e.clientX - panStart.current.x) / rect.width * vbW;
+      const dy = (e.clientY - panStart.current.y) / rect.height * vbH;
+      setViewOrigin({
+        x: panStart.current.vx - dx,
+        y: panStart.current.vy - dy,
+      });
+      return;
+    }
+    // Node drag
     if (!dragNodeId || !onNodeMove) return;
     const svgPt = clientToSVG(e.clientX, e.clientY);
     const data = svgToData(svgPt.x, svgPt.y);
     onNodeMove(dragNodeId, data.x, data.y);
-  }, [dragNodeId, onNodeMove, clientToSVG, svgToData]);
+  }, [isPanning, dragNodeId, onNodeMove, clientToSVG, svgToData, layout, zoom]);
 
   const handlePointerUp = useCallback(() => {
     setDragNodeId(null);
+    setIsPanning(false);
+    panStart.current = null;
   }, []);
 
   if (!nodes.length) {
@@ -140,31 +221,58 @@ export function MakeNetworkMap({ nodes, links, subcatchments, onNodeMove }: Prop
   if (!layout) return null;
   const { w, h, positioned, posMap } = layout;
 
+  // Compute the zoomed viewBox
+  const vbW = w / zoom;
+  const vbH = h / zoom;
+  const viewBox = `${viewOrigin.x} ${viewOrigin.y} ${vbW} ${vbH}`;
+
   const scOutlets = subcatchments.map(sc => ({
     name: sc.name,
     outlet: sc.outlet,
     pos: posMap[sc.outlet],
   })).filter(s => s.pos);
 
+  const zoomPct = Math.round(zoom * 100);
+
   return (
     <Card>
       <CardContent className="py-4">
-        <p className="text-sm text-muted-foreground mb-3 font-mono">
-          {nodes.length} nodes • {links.length} links • {subcatchments.length} subcatchments
-          {onNodeMove && <span className="ml-2 text-xs text-primary opacity-80">⤡ Drag nodes to reposition</span>}
-          {!hasCoords && nodes.length > 0 && !onNodeMove && <span className="ml-2 text-xs opacity-60">(auto-layout — set X/Y on nodes for spatial positioning)</span>}
-        </p>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-sm text-muted-foreground font-mono">
+            {nodes.length} nodes • {links.length} links • {subcatchments.length} subcatchments
+            {onNodeMove && <span className="ml-2 text-xs text-primary opacity-80">⤡ Drag nodes to reposition</span>}
+            {!hasCoords && nodes.length > 0 && !onNodeMove && <span className="ml-2 text-xs opacity-60">(auto-layout)</span>}
+          </p>
+          <div className="flex items-center gap-1">
+            <span className="text-xs font-mono text-muted-foreground mr-1">{zoomPct}%</span>
+            <Button variant="outline" size="icon" className="h-7 w-7" onClick={handleZoomIn} title="Zoom in">
+              <ZoomIn className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant="outline" size="icon" className="h-7 w-7" onClick={handleZoomOut} title="Zoom out">
+              <ZoomOut className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant="outline" size="icon" className="h-7 w-7" onClick={handleResetView} title="Reset view">
+              <Maximize className="h-3.5 w-3.5" />
+            </Button>
+            <span className="text-xs text-muted-foreground ml-2 hidden sm:inline opacity-60">
+              <Move className="h-3 w-3 inline mr-0.5" />Ctrl+drag or scroll to zoom/pan
+            </span>
+          </div>
+        </div>
 
-        <div className="border border-border rounded-lg overflow-hidden bg-card">
+        <div className="border border-border rounded-lg overflow-hidden bg-card relative">
           <svg
             ref={svgRef}
-            viewBox={`0 0 ${w} ${h}`}
-            className={`w-full ${onNodeMove ? 'touch-none' : ''}`}
+            viewBox={viewBox}
+            className={`w-full ${isPanning ? 'cursor-grabbing' : 'touch-none'}`}
+            style={{ minHeight: 300 }}
+            onWheel={handleWheel}
+            onPointerDown={handleSvgPointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerLeave={handlePointerUp}
           >
-            <rect width={w} height={h} fill="hsl(var(--card))" />
+            <rect x={viewOrigin.x} y={viewOrigin.y} width={vbW} height={vbH} fill="hsl(var(--card))" />
 
             {/* Grid lines */}
             {[0.25, 0.5, 0.75].map(f => (
@@ -232,7 +340,7 @@ export function MakeNetworkMap({ nodes, links, subcatchments, onNodeMove }: Prop
               const isStorage = node.type === 'storage';
               const isDragging = dragNodeId === node.id;
               const r = isOutfall ? 7 : isStorage ? 6 : 4;
-              const hitR = Math.max(r + 6, 12); // Larger hit area for easier grabbing
+              const hitR = Math.max(r + 6, 12);
 
               return (
                 <g
