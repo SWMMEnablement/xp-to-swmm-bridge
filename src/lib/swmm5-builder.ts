@@ -390,6 +390,36 @@ SKIP_STEADY_STATE    NO
     inp += '\n';
   }
 
+  // Dry Weather Flow
+  const dwfInflows = p.dwfInflows || [];
+  if (dwfInflows.length) {
+    inp += `[DWF]\n;;Node           Constituent      Baseline   Patterns\n;;-------------- ---------------- ---------- ----------\n`;
+    dwfInflows.forEach(d => {
+      let patStr = '';
+      if (d.patterns.length > 0) {
+        patStr = d.patterns.map(pn => pn ? `"${pn}"` : '""').join(' ');
+      }
+      inp += `${pd(d.nodeName, 16)} ${pd(d.constituent, 16)} ${pd(f(d.baseline, 4), 10)} ${patStr}\n`;
+    });
+    inp += '\n';
+  }
+
+  // Patterns
+  const patterns = p.patterns || [];
+  if (patterns.length) {
+    inp += `[PATTERNS]\n;;Name           Type       Multipliers\n;;-------------- ---------- -----------\n`;
+    patterns.forEach(pat => {
+      const mults = pat.multipliers;
+      const chunkSize = pat.type === 'MONTHLY' ? 6 : pat.type === 'DAILY' ? 7 : 6;
+      for (let i = 0; i < mults.length; i += chunkSize) {
+        const chunk = mults.slice(i, i + chunkSize);
+        const typeCol = i === 0 ? pd(pat.type, 10) : pd('', 10);
+        inp += `${pd(pat.name, 16)} ${typeCol} ${chunk.map(v => f(v, 4)).join('  ')}\n`;
+      }
+    });
+    inp += '\n';
+  }
+
   inp += `[REPORT]\nSUBCATCHMENTS ALL\nNODES ALL\nLINKS ALL\n`;
   return inp;
 }
