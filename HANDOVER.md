@@ -70,6 +70,7 @@ A **client-side** web application that converts XPSWMM proprietary `.xp` files i
 | **Controls/Rules** | Real-time control rules (CONF/CNTL + pump inference) | ✅ Full |
 | **LID Controls** | Bio-retention, rain garden, green roof, infiltration trench, permeable pavement, rain barrel, rooftop disconnection, vegetative swale | ✅ Full |
 | **XP Generation** | Create .xp files from scratch (nodes, links, subcatchments, controls) | ✅ Full |
+| **Dry Weather Flow** | DWF baseline inflows + time patterns → [DWF] and [PATTERNS] | ✅ Full |
 | **Groundwater** | GW flow equations | ❌ Not yet |
 | **Snow Pack** | Snow melt parameters | ❌ Not yet |
 | **RDII** | Rainfall-Dependent Infiltration/Inflow | ❌ Not yet |
