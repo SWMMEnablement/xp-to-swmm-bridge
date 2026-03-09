@@ -1,7 +1,8 @@
 import { useMemo, useRef, useCallback, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ZoomIn, ZoomOut, Maximize, Move } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize, Move, Grid3x3 } from "lucide-react";
+import { Toggle } from "@/components/ui/toggle";
 import type { MakeNode, MakeLink, MakeSubcatchment } from "@/lib/xp-generator";
 
 interface Props {
@@ -27,12 +28,15 @@ const LINK_COLORS: Record<string, string> = {
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 8;
 const ZOOM_STEP = 1.2;
+const SNAP_SIZES = [0, 1, 5, 10, 25, 50, 100] as const;
 
 export function MakeNetworkMap({ nodes, links, subcatchments, onNodeMove }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [dragNodeId, setDragNodeId] = useState<string | null>(null);
   const [isPanning, setIsPanning] = useState(false);
   const panStart = useRef<{ x: number; y: number; vx: number; vy: number } | null>(null);
+  const [snapIndex, setSnapIndex] = useState(3); // default 10
+  const snapSize = SNAP_SIZES[snapIndex];
 
   // Zoom/pan state: viewBox origin and zoom level
   const [zoom, setZoom] = useState(1);
@@ -199,8 +203,11 @@ export function MakeNetworkMap({ nodes, links, subcatchments, onNodeMove }: Prop
     if (!dragNodeId || !onNodeMove) return;
     const svgPt = clientToSVG(e.clientX, e.clientY);
     const data = svgToData(svgPt.x, svgPt.y);
-    onNodeMove(dragNodeId, data.x, data.y);
-  }, [isPanning, dragNodeId, onNodeMove, clientToSVG, svgToData, layout, zoom]);
+    const snapped = snapSize > 0
+      ? { x: Math.round(data.x / snapSize) * snapSize, y: Math.round(data.y / snapSize) * snapSize }
+      : data;
+    onNodeMove(dragNodeId, snapped.x, snapped.y);
+  }, [isPanning, dragNodeId, onNodeMove, clientToSVG, svgToData, layout, zoom, snapSize]);
 
   const handlePointerUp = useCallback(() => {
     setDragNodeId(null);
@@ -254,6 +261,30 @@ export function MakeNetworkMap({ nodes, links, subcatchments, onNodeMove }: Prop
             <Button variant="outline" size="icon" className="h-7 w-7" onClick={handleResetView} title="Reset view">
               <Maximize className="h-3.5 w-3.5" />
             </Button>
+            {onNodeMove && (
+              <div className="flex items-center gap-1 ml-2 border-l border-border pl-2">
+                <Toggle
+                  size="sm"
+                  pressed={snapSize > 0}
+                  onPressedChange={() => setSnapIndex(i => i === 0 ? 3 : 0)}
+                  className="h-7 w-7 p-0"
+                  title={snapSize > 0 ? `Snap: ${snapSize}` : 'Snap off'}
+                >
+                  <Grid3x3 className="h-3.5 w-3.5" />
+                </Toggle>
+                {snapSize > 0 && (
+                  <select
+                    value={snapIndex}
+                    onChange={e => setSnapIndex(Number(e.target.value))}
+                    className="h-7 text-xs font-mono bg-transparent border border-border rounded px-1 text-foreground"
+                  >
+                    {SNAP_SIZES.filter(s => s > 0).map((s, i) => (
+                      <option key={s} value={i + 1}>{s}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
             <span className="text-xs text-muted-foreground ml-2 hidden sm:inline opacity-60">
               <Move className="h-3 w-3 inline mr-0.5" />Ctrl+drag or scroll to zoom/pan
             </span>
