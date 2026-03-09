@@ -29,21 +29,31 @@ export function MakeNetworkMap({ nodes, links, subcatchments }: Props) {
 
     const pad = 50;
     const w = 900;
-    const h = 460;
+    const baseH = 460;
 
     // Use coordinates if available, else auto-layout in a grid
     let positioned: { node: MakeNode; px: number; py: number }[];
+    let h = baseH;
     if (hasCoords) {
       const xs = nodes.map(n => n.x), ys = nodes.map(n => n.y);
       const xn = Math.min(...xs), xx = Math.max(...xs);
       const yn = Math.min(...ys), yx = Math.max(...ys);
-      const xr = xx - xn || 1, yr = yx - yn || 1;
-      positioned = nodes.map(n => ({
-        node: n,
-        px: pad + ((n.x - xn) / xr) * (w - 2 * pad),
-        py: h - pad - ((n.y - yn) / yr) * (h - 2 * pad),
-      }));
+      const xr = xx - xn, yr = yx - yn;
+      // Compute height to preserve data aspect ratio
+      if (xr > 0 && yr > 0) {
+        h = Math.max(300, Math.min(800, 2 * pad + (w - 2 * pad) * (yr / xr)));
+      }
+      positioned = nodes.map(n => {
+        const px = xr > 0
+          ? pad + ((n.x - xn) / xr) * (w - 2 * pad)
+          : w / 2;
+        const py = yr > 0
+          ? h - pad - ((n.y - yn) / yr) * (h - 2 * pad)
+          : h / 2;
+        return { node: n, px, py };
+      });
     } else {
+      h = baseH;
       const cols = Math.ceil(Math.sqrt(nodes.length));
       const gx = (w - 2 * pad) / Math.max(cols - 1, 1);
       const rows = Math.ceil(nodes.length / cols);
@@ -90,7 +100,7 @@ export function MakeNetworkMap({ nodes, links, subcatchments }: Props) {
         </p>
 
         <div className="border border-border rounded-lg overflow-hidden bg-card">
-          <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ maxHeight: 460 }}>
+          <svg viewBox={`0 0 ${w} ${h}`} className="w-full">
             <rect width={w} height={h} fill="hsl(var(--card))" />
 
             {/* Grid lines */}
