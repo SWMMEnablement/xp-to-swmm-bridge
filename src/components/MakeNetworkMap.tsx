@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef, useCallback, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import type { MakeNode, MakeLink, MakeSubcatchment } from "@/lib/xp-generator";
 
@@ -6,6 +6,7 @@ interface Props {
   nodes: MakeNode[];
   links: MakeLink[];
   subcatchments: MakeSubcatchment[];
+  onNodeMove?: (nodeId: string, x: number, y: number) => void;
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -21,7 +22,10 @@ const LINK_COLORS: Record<string, string> = {
   weir: '#34d399',
 };
 
-export function MakeNetworkMap({ nodes, links, subcatchments }: Props) {
+export function MakeNetworkMap({ nodes, links, subcatchments, onNodeMove }: Props) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [dragNodeId, setDragNodeId] = useState<string | null>(null);
+
   const hasCoords = nodes.some(n => n.x !== 0 || n.y !== 0);
 
   const layout = useMemo(() => {
@@ -31,24 +35,28 @@ export function MakeNetworkMap({ nodes, links, subcatchments }: Props) {
     const w = 900;
     const baseH = 460;
 
-    // Use coordinates if available, else auto-layout in a grid
     let positioned: { node: MakeNode; px: number; py: number }[];
     let h = baseH;
+    // Store transform params for inverse mapping
+    let xMin = 0, xRange = 0, yMin = 0, yRange = 0;
+
     if (hasCoords) {
       const xs = nodes.map(n => n.x), ys = nodes.map(n => n.y);
-      const xn = Math.min(...xs), xx = Math.max(...xs);
-      const yn = Math.min(...ys), yx = Math.max(...ys);
-      const xr = xx - xn, yr = yx - yn;
-      // Compute height to preserve data aspect ratio
-      if (xr > 0 && yr > 0) {
-        h = Math.max(300, Math.min(800, 2 * pad + (w - 2 * pad) * (yr / xr)));
+      xMin = Math.min(...xs);
+      const xx = Math.max(...xs);
+      yMin = Math.min(...ys);
+      const yx = Math.max(...ys);
+      xRange = xx - xMin;
+      yRange = yx - yMin;
+      if (xRange > 0 && yRange > 0) {
+        h = Math.max(300, Math.min(800, 2 * pad + (w - 2 * pad) * (yRange / xRange)));
       }
       positioned = nodes.map(n => {
-        const px = xr > 0
-          ? pad + ((n.x - xn) / xr) * (w - 2 * pad)
+        const px = xRange > 0
+          ? pad + ((n.x - xMin) / xRange) * (w - 2 * pad)
           : w / 2;
-        const py = yr > 0
-          ? h - pad - ((n.y - yn) / yr) * (h - 2 * pad)
+        const py = yRange > 0
+          ? h - pad - ((n.y - yMin) / yRange) * (h - 2 * pad)
           : h / 2;
         return { node: n, px, py };
       });
@@ -58,6 +66,9 @@ export function MakeNetworkMap({ nodes, links, subcatchments }: Props) {
       const gx = (w - 2 * pad) / Math.max(cols - 1, 1);
       const rows = Math.ceil(nodes.length / cols);
       const gy = (h - 2 * pad) / Math.max(rows - 1, 1);
+      // For auto-layout, synthesize a coordinate range
+      xMin = 0; xRange = (cols - 1) * gx || w - 2 * pad;
+      yMin = 0; yRange = (rows - 1) * gy || h - 2 * pad;
       positioned = nodes.map((n, i) => ({
         node: n,
         px: pad + (i % cols) * gx,
@@ -68,8 +79,53 @@ export function MakeNetworkMap({ nodes, links, subcatchments }: Props) {
     const posMap: Record<string, { px: number; py: number }> = {};
     positioned.forEach(p => { posMap[p.node.name] = { px: p.px, py: p.py }; });
 
-    return { w, h, positioned, posMap };
+    return { w, h, pad, positioned, posMap, xMin, xRange, yMin, yRange };
   }, [nodes, hasCoords]);
+
+  // Convert SVG pixel coordinates back to data coordinates
+  const svgToData = useCallback((svgX: number, svgY: number) => {
+    if (!layout) return { x: 0, y: 0 };
+    const { w, h, pad, xRange, xMin, yRange, yMin } = layout;
+    const dataX = xRange > 0
+      ? xMin + ((svgX - pad) / (w - 2 * pad)) * xRange
+      : xMin;
+    const dataY = yRange > 0
+      ? yMin + ((h - pad - svgY) / (h - 2 * pad)) * yRange
+      : yMin;
+    return { x: Math.round(dataX * 10) / 10, y: Math.round(dataY * 10) / 10 };
+  }, [layout]);
+
+  // Convert client mouse position to SVG coordinates
+  const clientToSVG = useCallback((clientX: number, clientY: number) => {
+    const svg = svgRef.current;
+    if (!svg) return { x: 0, y: 0 };
+    const pt = svg.createSVGPoint();
+    pt.x = clientX;
+    pt.y = clientY;
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return { x: 0, y: 0 };
+    const svgPt = pt.matrixTransform(ctm.inverse());
+    return { x: svgPt.x, y: svgPt.y };
+  }, []);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent, nodeId: string) => {
+    if (!onNodeMove) return;
+    e.preventDefault();
+    e.stopPropagation();
+    (e.target as Element).setPointerCapture(e.pointerId);
+    setDragNodeId(nodeId);
+  }, [onNodeMove]);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragNodeId || !onNodeMove) return;
+    const svgPt = clientToSVG(e.clientX, e.clientY);
+    const data = svgToData(svgPt.x, svgPt.y);
+    onNodeMove(dragNodeId, data.x, data.y);
+  }, [dragNodeId, onNodeMove, clientToSVG, svgToData]);
+
+  const handlePointerUp = useCallback(() => {
+    setDragNodeId(null);
+  }, []);
 
   if (!nodes.length) {
     return (
@@ -84,7 +140,6 @@ export function MakeNetworkMap({ nodes, links, subcatchments }: Props) {
   if (!layout) return null;
   const { w, h, positioned, posMap } = layout;
 
-  // Find subcatchment outlet positions for annotation
   const scOutlets = subcatchments.map(sc => ({
     name: sc.name,
     outlet: sc.outlet,
@@ -96,11 +151,19 @@ export function MakeNetworkMap({ nodes, links, subcatchments }: Props) {
       <CardContent className="py-4">
         <p className="text-sm text-muted-foreground mb-3 font-mono">
           {nodes.length} nodes • {links.length} links • {subcatchments.length} subcatchments
-          {!hasCoords && nodes.length > 0 && <span className="ml-2 text-xs opacity-60">(auto-layout — set X/Y on nodes for spatial positioning)</span>}
+          {onNodeMove && <span className="ml-2 text-xs text-primary opacity-80">⤡ Drag nodes to reposition</span>}
+          {!hasCoords && nodes.length > 0 && !onNodeMove && <span className="ml-2 text-xs opacity-60">(auto-layout — set X/Y on nodes for spatial positioning)</span>}
         </p>
 
         <div className="border border-border rounded-lg overflow-hidden bg-card">
-          <svg viewBox={`0 0 ${w} ${h}`} className="w-full">
+          <svg
+            ref={svgRef}
+            viewBox={`0 0 ${w} ${h}`}
+            className={`w-full ${onNodeMove ? 'touch-none' : ''}`}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerLeave={handlePointerUp}
+          >
             <rect width={w} height={h} fill="hsl(var(--card))" />
 
             {/* Grid lines */}
@@ -137,11 +200,9 @@ export function MakeNetworkMap({ nodes, links, subcatchments }: Props) {
                     strokeDasharray={isPump ? '6 3' : isOrif ? '3 3' : undefined}
                     opacity={0.8}
                   />
-                  {/* Link label */}
                   <text x={mx} y={my - 6} fill={color} fontSize={7} fontFamily="monospace" textAnchor="middle" opacity={0.7}>
                     {l.name}
                   </text>
-                  {/* Direction arrow */}
                   {(() => {
                     const dx = d.px - u.px, dy = d.py - u.py;
                     const dist = Math.sqrt(dx * dx + dy * dy);
@@ -156,7 +217,6 @@ export function MakeNetworkMap({ nodes, links, subcatchments }: Props) {
                       />
                     );
                   })()}
-                  {/* Weir crest indicator */}
                   {isWeir && (
                     <line x1={mx - 6} y1={my + 2} x2={mx + 6} y2={my + 2} stroke={color} strokeWidth={3} strokeLinecap="round" opacity={0.5} />
                   )}
@@ -170,12 +230,26 @@ export function MakeNetworkMap({ nodes, links, subcatchments }: Props) {
               const color = TYPE_COLORS[node.type] || 'hsl(var(--primary))';
               const isOutfall = node.type === 'outfall';
               const isStorage = node.type === 'storage';
+              const isDragging = dragNodeId === node.id;
               const r = isOutfall ? 7 : isStorage ? 6 : 4;
+              const hitR = Math.max(r + 6, 12); // Larger hit area for easier grabbing
 
               return (
-                <g key={`node-${i}`}>
+                <g
+                  key={`node-${i}`}
+                  style={{ cursor: onNodeMove ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
+                  onPointerDown={(e) => handlePointerDown(e, node.id)}
+                >
+                  {/* Invisible hit area */}
+                  {onNodeMove && (
+                    <circle cx={px} cy={py} r={hitR} fill="transparent" />
+                  )}
+                  {/* Drag highlight */}
+                  {isDragging && (
+                    <circle cx={px} cy={py} r={r + 8} fill="hsl(var(--primary))" opacity={0.12} stroke="hsl(var(--primary))" strokeWidth={1} strokeDasharray="4 2" />
+                  )}
                   {/* Glow */}
-                  <circle cx={px} cy={py} r={r + 3} fill={color} opacity={0.15} />
+                  <circle cx={px} cy={py} r={r + 3} fill={color} opacity={isDragging ? 0.3 : 0.15} />
                   {/* Shape */}
                   {isOutfall ? (
                     <polygon
@@ -192,9 +266,9 @@ export function MakeNetworkMap({ nodes, links, subcatchments }: Props) {
                     {node.name}
                   </text>
                   <text x={px + r + 4} y={py - r + 8} fill="hsl(var(--muted-foreground))" fontSize={7} fontFamily="monospace" opacity={0.6}>
-                    {node.elevation.toFixed(1)}
+                    {isDragging ? `${node.x.toFixed(0)}, ${node.y.toFixed(0)}` : node.elevation.toFixed(1)}
                   </text>
-                  <title>{node.name} ({node.type}) — Elev: {node.elevation}, MaxD: {node.maxDepth}</title>
+                  <title>{node.name} ({node.type}) — X: {node.x}, Y: {node.y}, Elev: {node.elevation}</title>
                 </g>
               );
             })}
