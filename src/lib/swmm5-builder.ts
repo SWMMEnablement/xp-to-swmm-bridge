@@ -1,4 +1,4 @@
-import { type XPParseResult, type XPTimeSeries, type XPPumpCurve, type XPTransect, type XPPollutant, type XPLanduse, type XPBuildup, type XPWashoff, type XPLoading, type XPControlRule, type XPLIDControl, type XPLIDUsage, type XPRDIIUnitHydrograph, type XPRDIIInflow, SHAPE_CODES } from './xp-parser';
+import { type XPParseResult, type XPTimeSeries, type XPPumpCurve, type XPTransect, type XPPollutant, type XPLanduse, type XPBuildup, type XPWashoff, type XPLoading, type XPControlRule, type XPLIDControl, type XPLIDUsage, type XPRDIIUnitHydrograph, type XPRDIIInflow, type XPDWFInflow, type XPPattern, SHAPE_CODES } from './xp-parser';
 
 function f(v: number | undefined | null, d = 2): string {
   return v == null || v === 0 ? '0' : typeof v === 'number' ? v.toFixed(d) : String(v);
@@ -207,7 +207,9 @@ SKIP_STEADY_STATE    NO
     if (node) nodeToTS[node.name] = ts.name;
   });
 
-  const inflowNodes = p.nodes.filter(n => (n.qinst && n.qinst > 0) || nodeToTS[n.name]);
+  // Exclude nodes that are DWF sources (they go to [DWF] instead)
+  const dwfNodeNames = new Set((p.dwfInflows || []).map(d => d.nodeName));
+  const inflowNodes = p.nodes.filter(n => ((n.qinst && n.qinst > 0) || nodeToTS[n.name]) && !dwfNodeNames.has(n.name));
   if (inflowNodes.length) {
     inp += `[INFLOWS]\n;;Node           Constituent  Time Series      Type     Mfactor  Sfactor  Baseline Pattern\n;;-------------- ------------ ---------------- -------- -------- -------- -------- --------\n`;
     inflowNodes.forEach(n => {
@@ -386,6 +388,36 @@ SKIP_STEADY_STATE    NO
       inp += `${pd(uh.name, 16)} ${pd(uh.months, 16)} SHORT     ${pd(f(uh.r1, 4), 10)} ${pd(f(uh.t1, 4), 10)} ${pd(f(uh.k1, 4), 10)} ${pd(f(uh.iaMax, 4), 10)} ${pd(f(uh.iaRecovery, 4), 10)} ${pd(f(uh.iaInit, 4), 10)}\n`;
       inp += `${pd(uh.name, 16)} ${pd(uh.months, 16)} MEDIUM    ${pd(f(uh.r2, 4), 10)} ${pd(f(uh.t2, 4), 10)} ${pd(f(uh.k2, 4), 10)}\n`;
       inp += `${pd(uh.name, 16)} ${pd(uh.months, 16)} LONG      ${pd(f(uh.r3, 4), 10)} ${pd(f(uh.t3, 4), 10)} ${pd(f(uh.k3, 4), 10)}\n`;
+    });
+    inp += '\n';
+  }
+
+  // Dry Weather Flow
+  const dwfInflows = p.dwfInflows || [];
+  if (dwfInflows.length) {
+    inp += `[DWF]\n;;Node           Constituent      Baseline   Patterns\n;;-------------- ---------------- ---------- ----------\n`;
+    dwfInflows.forEach(d => {
+      let patStr = '';
+      if (d.patterns.length > 0) {
+        patStr = d.patterns.map(pn => pn ? `"${pn}"` : '""').join(' ');
+      }
+      inp += `${pd(d.nodeName, 16)} ${pd(d.constituent, 16)} ${pd(f(d.baseline, 4), 10)} ${patStr}\n`;
+    });
+    inp += '\n';
+  }
+
+  // Patterns
+  const patterns = p.patterns || [];
+  if (patterns.length) {
+    inp += `[PATTERNS]\n;;Name           Type       Multipliers\n;;-------------- ---------- -----------\n`;
+    patterns.forEach(pat => {
+      const mults = pat.multipliers;
+      const chunkSize = pat.type === 'MONTHLY' ? 6 : pat.type === 'DAILY' ? 7 : 6;
+      for (let i = 0; i < mults.length; i += chunkSize) {
+        const chunk = mults.slice(i, i + chunkSize);
+        const typeCol = i === 0 ? pd(pat.type, 10) : pd('', 10);
+        inp += `${pd(pat.name, 16)} ${typeCol} ${chunk.map(v => f(v, 4)).join('  ')}\n`;
+      }
     });
     inp += '\n';
   }
