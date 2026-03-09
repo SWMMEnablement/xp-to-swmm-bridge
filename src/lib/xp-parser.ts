@@ -390,6 +390,20 @@ export interface XPRDIIInflow {
   sewerArea: number;     // Sewer-connected area (acres or hectares)
 }
 
+// Dry Weather Flow (DWF) interfaces
+export interface XPDWFInflow {
+  nodeName: string;
+  constituent: string;   // 'FLOW' or pollutant name
+  baseline: number;      // Average DWF value
+  patterns: string[];    // Up to 4 pattern names [monthly, daily, hourly, weekend]
+}
+
+export interface XPPattern {
+  name: string;
+  type: string;          // 'MONTHLY', 'DAILY', 'HOURLY', 'WEEKEND'
+  multipliers: number[];
+}
+
 export interface XPParseResult {
   nodes: XPNode[];
   links: XPLink[];
@@ -407,6 +421,8 @@ export interface XPParseResult {
   loadings: XPLoading[];
   buildups: XPBuildup[];
   washoffs: XPWashoff[];
+  dwfInflows: XPDWFInflow[];
+  patterns: XPPattern[];
   jobControl: Record<string, string>;
   rawCards: Record<string, { data: string }[]>;
   format: string;
