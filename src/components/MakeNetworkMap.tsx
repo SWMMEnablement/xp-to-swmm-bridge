@@ -413,6 +413,18 @@ export function MakeNetworkMap({ nodes, links, subcatchments, onNodeMove }: Prop
               );
             })}
           </svg>
+          {nodes.length > 0 && (
+            <NetworkMinimap
+              nodes={positioned}
+              links={links}
+              posMap={posMap}
+              fullW={w}
+              fullH={h}
+              viewOrigin={viewOrigin}
+              zoom={zoom}
+              onPanTo={(x, y) => setViewOrigin({ x, y })}
+            />
+          )}
         </div>
 
         {/* Legend */}
