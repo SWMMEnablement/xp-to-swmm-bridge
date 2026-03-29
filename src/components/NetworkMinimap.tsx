@@ -41,7 +41,7 @@ export function NetworkMinimap({ nodes, links, posMap, fullW, fullH, viewOrigin,
   };
 
   return (
-    <div className="absolute bottom-2 right-2 z-10 border border-border rounded bg-card/90 backdrop-blur-sm shadow-md overflow-hidden pointer-events-auto">
+    <div className="absolute bottom-3 right-3 z-50 border-2 border-primary/50 rounded bg-card shadow-lg overflow-hidden pointer-events-auto" style={{ width: MINIMAP_W, height: MINIMAP_H }}>
       <svg
         width={MINIMAP_W}
         height={MINIMAP_H}
