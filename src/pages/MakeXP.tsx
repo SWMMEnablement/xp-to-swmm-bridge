@@ -170,7 +170,6 @@ const MakeXP = () => {
               <TabsTrigger value="links" className="font-mono text-xs">Links <Badge variant="secondary" className="ml-1 text-xs">{model.links.length}</Badge></TabsTrigger>
               <TabsTrigger value="subcatchments" className="font-mono text-xs">Subcatchments <Badge variant="secondary" className="ml-1 text-xs">{model.subcatchments.length}</Badge></TabsTrigger>
               <TabsTrigger value="controls" className="font-mono text-xs">Controls <Badge variant="secondary" className="ml-1 text-xs">{model.controls.length}</Badge></TabsTrigger>
-              <TabsTrigger value="controls" className="font-mono text-xs">Controls <Badge variant="secondary" className="ml-1 text-xs">{model.controls.length}</Badge></TabsTrigger>
               <TabsTrigger value="map" className="font-mono text-xs"><Map className="h-3 w-3 mr-1" />Map</TabsTrigger>
               <TabsTrigger value="preview" className="font-mono text-xs">Preview</TabsTrigger>
             </TabsList>
