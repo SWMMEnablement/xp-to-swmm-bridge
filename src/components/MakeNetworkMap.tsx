@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ZoomIn, ZoomOut, Maximize, Move, Grid3x3 } from "lucide-react";
 import { Toggle } from "@/components/ui/toggle";
 import type { MakeNode, MakeLink, MakeSubcatchment } from "@/lib/xp-generator";
+import { NetworkMinimap } from "@/components/NetworkMinimap";
 
 interface Props {
   nodes: MakeNode[];
