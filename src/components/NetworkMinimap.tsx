@@ -25,7 +25,6 @@ export function NetworkMinimap({ nodes, links, posMap, fullW, fullH, viewOrigin,
   const vbW = fullW / zoom;
   const vbH = fullH / zoom;
 
-  // Viewport rect in minimap coordinates
   const vpX = viewOrigin.x * scale;
   const vpY = viewOrigin.y * scale;
   const vpW = vbW * scale;
@@ -36,23 +35,35 @@ export function NetworkMinimap({ nodes, links, posMap, fullW, fullH, viewOrigin,
     const rect = svg.getBoundingClientRect();
     const mx = ((e.clientX - rect.left) / rect.width) * MINIMAP_W;
     const my = ((e.clientY - rect.top) / rect.height) * MINIMAP_H;
-    // Center viewport on clicked point
     onPanTo(mx / scale - vbW / 2, my / scale - vbH / 2);
   };
 
   return (
-    <div className="absolute bottom-3 right-3 z-50 border-2 border-primary/50 rounded bg-card shadow-lg overflow-hidden pointer-events-auto" style={{ width: MINIMAP_W, height: MINIMAP_H }}>
+    <div
+      style={{
+        position: 'absolute',
+        bottom: 12,
+        right: 12,
+        zIndex: 50,
+        width: MINIMAP_W,
+        height: MINIMAP_H,
+        border: '1px solid hsl(var(--border))',
+        borderRadius: 6,
+        overflow: 'hidden',
+        pointerEvents: 'auto',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+        background: 'hsl(var(--card))',
+      }}
+    >
       <svg
         width={MINIMAP_W}
         height={MINIMAP_H}
         viewBox={`0 0 ${MINIMAP_W} ${MINIMAP_H}`}
-        className="block cursor-crosshair"
+        style={{ display: 'block', cursor: 'crosshair' }}
         onClick={handleClick}
       >
-        {/* Background */}
         <rect width={MINIMAP_W} height={MINIMAP_H} fill="hsl(var(--card))" />
 
-        {/* Links */}
         {links.map((l, i) => {
           const u = posMap[l.fromNode];
           const d = posMap[l.toNode];
@@ -69,27 +80,25 @@ export function NetworkMinimap({ nodes, links, posMap, fullW, fullH, viewOrigin,
           );
         })}
 
-        {/* Nodes */}
         {nodes.map((p, i) => (
           <circle
             key={i}
             cx={p.px * scale}
             cy={p.py * scale}
-            r={1.5}
+            r={2}
             fill="hsl(var(--primary))"
-            opacity={0.8}
+            opacity={0.9}
           />
         ))}
 
-        {/* Viewport rectangle */}
         <rect
           x={vpX} y={vpY}
           width={Math.max(vpW, 4)} height={Math.max(vpH, 3)}
           fill="hsl(var(--primary))"
-          fillOpacity={0.1}
+          fillOpacity={0.15}
           stroke="hsl(var(--primary))"
-          strokeWidth={1}
-          strokeOpacity={0.7}
+          strokeWidth={1.5}
+          strokeOpacity={0.8}
           rx={1}
         />
       </svg>
