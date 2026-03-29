@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ZoomIn, ZoomOut, Maximize, Move, Grid3x3 } from "lucide-react";
 import { Toggle } from "@/components/ui/toggle";
 import type { MakeNode, MakeLink, MakeSubcatchment } from "@/lib/xp-generator";
+import { NetworkMinimap } from "@/components/NetworkMinimap";
 
 interface Props {
   nodes: MakeNode[];
@@ -412,6 +413,18 @@ export function MakeNetworkMap({ nodes, links, subcatchments, onNodeMove }: Prop
               );
             })}
           </svg>
+          {nodes.length > 0 && (
+            <NetworkMinimap
+              nodes={positioned}
+              links={links}
+              posMap={posMap}
+              fullW={w}
+              fullH={h}
+              viewOrigin={viewOrigin}
+              zoom={zoom}
+              onPanTo={(x, y) => setViewOrigin({ x, y })}
+            />
+          )}
         </div>
 
         {/* Legend */}
